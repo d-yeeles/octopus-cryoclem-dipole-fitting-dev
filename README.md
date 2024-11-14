@@ -1,3 +1,5 @@
+(hinterer_fit_multiple.m isn't for this Mortensen stuff but thought I'd put it here for the moment. It has some info about how the result of the fitting is stored and some notes to myself about how to proceed)
+
 diPOLE_python3_loop.py uses Mortensen's fixed dipole fitting code diPOLE.py, available from 'Supplementary Software' at the bottom of https://www.nature.com/articles/ncomms9621
 I've translated it into python3 to work, and modified Estimate() so that it returns the position, orientation, and covariance matrix for each spot.
 That code is intended for a single spot on a single frame, so here we just loop over every spot in a frame, and then over every frame.
