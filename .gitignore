@@ -1,2 +1,4 @@
 .idea/
 *.ome.tif
+attic/
+*/attic/

@@ -11,6 +11,7 @@ addpath(genpath('./'));
 %baseParams.defocusRange = [-500, 500];  % Defocus range
 
 % Input params
+hinterer_results_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/localizationFixedDipoles-motionFit/loop-test/hinterer_results.csv';
 thunderstorm_results_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/localizationFixedDipoles-motionFit/loop-test/thunderstorm_results.csv';
 pixel_width = 51.2; % Pixel width (nm per px)
 frames_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/localizationFixedDipoles-motionFit/loop-test/ASIL240923C05_50.ome.tif-frames/';
