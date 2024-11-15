@@ -137,16 +137,16 @@ for frame_index = 1:length(frame_paths)
         angleAzimuth = 2 * pi * rand;
         par.dipole = Dipole(angleInclination, angleAzimuth);
         par.position = Length([0 0 0], 'nm'); % Because initial estimate is centre of patch (check that 0,0 is centre)
-        par.nPhotons = 1e5;
+        par.nPhotons = 750;
         par.shotNoise = 0;
         par.reducedExcitation = 0;
         par.stageDrift = LinearDrift(0.0001, 0.0001, 1, 'nm');%(10, 1, 10, 'nm');
 
         % Microscope parameters
         par.defocus = Length(0, 'nm'); % Assume no defocus for now
-        par.wavelength = Length(680,'nm');
+        par.wavelength = Length(480,'nm');
         par.astigmatism = 0; % Zernike coefficient (in units of wavelength, i.e. 0.11 for Zernike coefficient 0.11*lambda)
-        par.objectiveNA = 0.7;
+        par.objectiveNA = 2.17;
         par.objectiveFocalLength = Length(3,'mm');
         par.refractiveIndices = [1.33 1.46 1]; % [RI_specimen, RI_intermed, RI_immoil]
         par.heightIntermediateLayer = Length(0, 'mm');
@@ -168,8 +168,8 @@ for frame_index = 1:length(frame_paths)
         % now swap out the psf.image for the patch image created earlier -
         % no idea if this is right or doing the right thing at all, and I
         % don't know what it should be normalised to
-        patch_image = patches{blob_index}
-        patch_image = double(patch_image)
+        patch_image = patches{blob_index};
+        patch_image = double(patch_image);
 
         % Normalize the image to the range [0, max(psf.image(:))]
         patch_min = min(patch_image(:));  % Find the minimum value
