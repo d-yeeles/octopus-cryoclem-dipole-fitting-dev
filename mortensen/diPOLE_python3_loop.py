@@ -51,13 +51,20 @@ from thunderstorm_run_macro import run_thunderstorm, reconstruct
 
 def blob_detect_all_frames(frames_dir, results_path, pixel_width):
 
-    fs, xs, ys = run_thunderstorm(frames_dir, results_path)
+    run_thunderstorm(frames_dir, results_path)
+
+    # Import the positions in each frame
+    df = pd.read_csv(results_path)
+    df_selected_columns = df[['frame','x [nm]', 'y [nm]']]
+    f_array = df['frame'].to_numpy()
+    x_array = df['x [nm]'].to_numpy()
+    y_array = df['y [nm]'].to_numpy()
 
     # rescale from nm to px
-    xs_image_coords = xs/pixel_width
-    ys_image_coords = ys/pixel_width
+    x_array_image_coords = x_array/pixel_width
+    y_array_image_coords = y_array/pixel_width
 
-    centroids_image_coords = [(int(f), int(x), int(y)) for f, x, y in zip(fs, xs_image_coords, ys_image_coords)]
+    centroids_image_coords = [(int(f), int(x), int(y)) for f, x, y in zip(f_array, x_array_image_coords, y_array_image_coords)]
 
     return centroids_image_coords
 

@@ -34,14 +34,14 @@ def run_thunderstorm(frames_path, results_path):
     # Close ImageJ properly after execution
     ij.dispose()
 
-    # Import the positions in each frame
-    df = pd.read_csv(results_path)
-    df_selected_columns = df[['frame','x [nm]', 'y [nm]']]
-    f_array = df['frame'].to_numpy()  # 1D array for frame numbers
-    x_array = df['x [nm]'].to_numpy()  # 1D array for x values
-    y_array = df['y [nm]'].to_numpy()  # 1D array for y values
+    # # Import the positions in each frame
+    # df = pd.read_csv(results_path)
+    # df_selected_columns = df[['frame','x [nm]', 'y [nm]']]
+    # f_array = df['frame'].to_numpy()  # 1D array for frame numbers
+    # x_array = df['x [nm]'].to_numpy()  # 1D array for x values
+    # y_array = df['y [nm]'].to_numpy()  # 1D array for y values
 
-    return f_array, x_array, y_array
+    return# f_array, x_array, y_array
 
 def reconstruct(results_path, output_img_path):
 
