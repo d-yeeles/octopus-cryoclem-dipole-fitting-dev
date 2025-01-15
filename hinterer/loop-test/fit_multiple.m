@@ -122,10 +122,10 @@ for frame_index = 1:length(frame_paths)
         % Oh and because the patches we consider will be centered on those
         % locations, the initial estimate will always be (0,0) by definition.
         %
-        % pdf.image seems to be a 2x2 array
+        % psf.image seems to be a 2x2 array
         % with the values spanning 0 to like 4000 or so
         % normalise to 255 perhaps?
-        % I think it's just photon counts. Currently nPhotoons = 1e5
+        % I think it's just photon counts. Currently nPhotons = 1e5
 
         % --- Set input parameters ---
 

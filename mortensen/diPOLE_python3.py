@@ -1546,29 +1546,36 @@ class MLEwT:
         asegment=self.a
         self.npix=2*self.deltapix
         covar=MLEwTcovar(self.a,self.npix,self.wl,self.NA,self.n,self.n0,self.M,asegment)
-        covarmatrix=covar.CovarianceMatrix(est[3],est[2],est[0:2],est[4],est[5],est[6])
 
-        # Account for excess noise
-        covarmatrix*=2.0
-
-        errorbars=sqrt(diag(covarmatrix))
-
-        # print("\nx coordinate [nm] = ", around(est[0],1),'+/-',around(errorbars[0],1))
-        # print("y coordinate [nm] = ", around(est[1],1),'+/-',around(errorbars[1],1))
+        # # dave jan 2025 - commenting out covar because of errors
+        # covarmatrix=covar.CovarianceMatrix(est[3],est[2],est[0:2],est[4],est[5],est[6])
+        #
+        # # Account for excess noise
+        # covarmatrix*=2.0
+        #
+        # errorbars=sqrt(diag(covarmatrix))
+        #
+        # print("\nx coordinate [nm] = ", around(est[0],3),'+/-',around(errorbars[0],1))
+        # print("y coordinate [nm] = ", around(est[1],3),'+/-',around(errorbars[1],1))
         # print("azimuthal angle [rad] = ", around(est[4],2),'+/-',around(errorbars[2],3))
         # print("polar angle [rad] = ", around(est[5],2),'+/-',around(errorbars[3],3))
-        #
+
         # # dave nov 2024 - i also commented out the print statements above
         # print("covariance matrix = ")
         # print(covarmatrix)
 
+        print("\nx coordinate [nm] = ", around(est[0],3))
+        print("y coordinate [nm] = ", around(est[1],3))
+        print("azimuthal angle [rad] = ", around(est[4],2))
+        print("polar angle [rad] = ", around(est[5],2))
+
         x_est = est[0]
         y_est = est[1]
-        theta_est = est[2]
-        phi_est = est[3]
-        cov_mat = covarmatrix
+        phi_est = est[4] % (2 * np.pi)
+        theta_est = est[5] % (2 * np.pi)
+        # cov_mat = covarmatrix
 
-        return x_est, y_est, theta_est, phi_est, cov_mat
+        return x_est, y_est, theta_est, phi_est, 0#cov_mat
         # return
 
 

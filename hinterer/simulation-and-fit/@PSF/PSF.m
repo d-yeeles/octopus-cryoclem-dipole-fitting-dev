@@ -39,7 +39,7 @@ classdef PSF
         attenuationMaskObj
     end
     
-    properties (Hidden, Access=protected)
+    properties (Hidden)%, Access=protected) % dave jan 2025 - trying to optimise over angle, might regret this change later
         Defocus
         pupilMask
         fieldBFP
@@ -95,6 +95,7 @@ classdef PSF
         function obj = createImage(obj)
             [obj.Defocus, obj.pupilMask, obj.chirpZTransform, obj.phaseMaskObj, obj.attenuationMaskObj] = obj.setup();
             
+            % bfp = BackFocalPlane(obj);
             bfp = BackFocalPlane(obj);
             obj.backFocalPlane = bfp;
 
