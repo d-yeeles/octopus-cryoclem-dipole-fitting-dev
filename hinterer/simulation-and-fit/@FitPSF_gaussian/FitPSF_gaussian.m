@@ -1,4 +1,4 @@
-classdef FitPSF_angles
+classdef FitPSF_gaussian
     
     properties
         psf PSF 
@@ -31,9 +31,9 @@ classdef FitPSF_angles
     end
     
     methods
-        function obj = FitPSF_angles(psf, par)
+        function obj = FitPSF_gaussian(psf, par)
             if nargin > 1
-                obj = setInputParameters('FitPSF_angles', obj, par);
+                obj = setInputParameters('FitPSF_gaussian', obj, par);
             end
             if nargin > 0
                 obj.psf = psf;
@@ -45,7 +45,7 @@ classdef FitPSF_angles
         
         %% Fit
         function estimatesPositionDefocus = fitting(obj)
-            parPsfEstimate = FitPSF_angles.readParametersEstimate(obj.psf);
+            parPsfEstimate = FitPSF_gaussian.readParametersEstimate(obj.psf);
             parPsfEstimate.dipole = Dipole(0, 0); % dave jan 2025 - set to 0 for adding angle optimiser
             parPsfEstimate.position = Length([0 0 0], 'nm');
             parPsfEstimate.nPhotons = obj.nPhotonEstimate;
