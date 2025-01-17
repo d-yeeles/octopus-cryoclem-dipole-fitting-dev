@@ -373,8 +373,8 @@ classdef FitPSF_angles
             % dave jan 2025
             % doing more than the reduced form they were doing            
             
-            % bfp = BackFocalPlane(psfEstimate);
-            bfp = BackFocalPlane_gaussian(psfEstimate); % use this if want just Gaussian
+            bfp = BackFocalPlane(psfEstimate);
+            % bfp = BackFocalPlane_gaussian(psfEstimate); % use this if want just Gaussian
             psfEstimate.backFocalPlane = bfp;
 
             % Apply phase mask

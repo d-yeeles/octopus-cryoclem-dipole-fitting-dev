@@ -1,3 +1,4 @@
+
 %% Fitting multiple PSFs in a single frame
 
 % Same as looop-test/fit_multiple.m, but feeding it the known simulated
@@ -13,7 +14,7 @@ addpath(genpath('../'));
 %% ----------
 
 % Input params
-frames_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/';
+frames_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/2spot_az0/';
 
 % Locate all the images and settings files in the dir
 files = dir(frames_dir);
@@ -186,7 +187,7 @@ for frame_index = 1:length(frame_paths)
         % Run the fit - with angle optimising
         tic;
         fitResult = FitPSF_angles(psfInit, parEst);
-        elapsed_time = toc;
+        elapsed_time = toc;q
         fprintf('    Time to fit: %.2f seconds\n', elapsed_time);
         angleInclination_estimate = fitResult.estimatesPositionDefocus.ML(4);
         angleAzimuth_estimate = fitResult.estimatesPositionDefocus.ML(5);
@@ -261,7 +262,7 @@ angleInclination_errors = [angleInclination_errors{:}];
 angleAzimuth_errors = [angleAzimuth_errors{:}];
 
 % Save data about this stack of images (all frames compressed into one long array)
-fitting_results_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/fitting_results.py';
+fitting_results_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/2spot_az0/fitting_results_hinterer.py';
 
 fileID = fopen(fitting_results_path, 'w');
 fprintf(fileID, 'x_tru = [%s]\n', sprintf('%.2f, ', positionX_nm_true(1:end)));
@@ -277,3 +278,4 @@ fprintf(fileID, 'y_err = [%s]\n', sprintf('%.2f, ', positionY_nm_errors(1:end)))
 fprintf(fileID, 'inc_err = [%s]\n', sprintf('%.2f, ', angleInclination_errors(1:end)));
 fprintf(fileID, 'az_err = [%s]\n', sprintf('%.2f, ', angleAzimuth_errors(1:end)));
 fclose(fileID);
+
