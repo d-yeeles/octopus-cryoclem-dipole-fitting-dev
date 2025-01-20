@@ -12,8 +12,8 @@ addpath(genpath('../'));
 %% Simulate
 %% ----------
 
-inclinations = 0:pi/180:pi/2;
-azimuths = 0:0;
+inclinations = 3*(pi/2)/4:3*(pi/2)/4;%0:pi/180:pi/2;
+azimuths = 0:4*pi/180:2*pi;%0:0;
 runs = 0:1:25;
 
 % Global params - these will be the same whether sim or fit
@@ -56,7 +56,7 @@ for run = 1:length(runs)
     
             fprintf('Running inc=%.2f az=%.2f\n', inclination_deg, azimuth_deg);
     
-            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/2spot_az0/sim_inc%i_az%i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
+            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/2spot_inc67/sim_inc%i_az%i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
     
             % Need this for checking distance from neighbours
             positionX_nm_array = [];
@@ -126,7 +126,7 @@ for run = 1:length(runs)
             fprintf('Simulation output to \n %s\n', output_path);
     
             % Save ground truth info
-            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/2spot_az0/params_inc%i_az%i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
+            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/2spot_inc67/params_inc%i_az%i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
     
             fileID = fopen(data_output_path, 'w');
             fprintf(fileID, '%% ground truth for sim_inc%i_az%i_run%i.tif\n', round(inclination_deg), round(azimuth_deg), round(run));
