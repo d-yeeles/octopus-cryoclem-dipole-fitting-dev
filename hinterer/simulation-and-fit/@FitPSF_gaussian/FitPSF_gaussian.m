@@ -403,7 +403,7 @@ classdef FitPSF_gaussian
             currentPsf = currentPsf ./ totalIntensity * obj.nPhotonEstimate + obj.noiseEstimate;
             currentFitPSF = currentPsf ./ norm(currentPsf);
 
-            % dave jan 2025
+            % % dave jan 2025
             % disp(['X: ', num2str(lateralPositionAndDefocus(1))]);
             % disp(['Inclination: ', num2str(lateralPositionAndDefocus(4))]);
 

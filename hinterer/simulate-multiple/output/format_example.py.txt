@@ -1,0 +1,12 @@
+x_tru = [-434.11, 647.75, -312.15, 358.69, -409.14, ] # list of true x positions of each dipole
+y_tru = [70.52, 710.92, 427.54, -496.38, 862.72, ]    # y
+inc_tru = [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, ]      # polar
+az_tru = [2.36, 2.36, 2.36, 2.36, 2.36, ]             # azimuthal
+x_est = [-430.98, 646.16, -309.03, 358.46, -407.87, ] # list of estimates of x position of each dipole
+y_est = [66.75, 709.35, 426.72, -495.43, 862.57, ]    # y
+inc_est = [0.42, 0.00, 0.00, 0.15, 3.14, ]            # polar
+az_est = [0.94, 0.00, 0.00, 2.21, 0.00, ]             # azimuthal
+x_err = [-3.13, 1.59, -3.12, 0.23, -1.27, ]           # list of (true - estimate) of x positions of each dipole
+y_err = [3.77, 1.57, 0.83, -0.95, 0.15, ]             # y
+inc_err = [-0.42, -0.00, -0.00, -0.15, -3.14, ]       # polar
+az_err = [1.41, 2.36, 2.36, 0.15, 2.36, ]             # azimuthal
