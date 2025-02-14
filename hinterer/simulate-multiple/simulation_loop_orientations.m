@@ -12,19 +12,19 @@ addpath(genpath('../'));
 %% Simulate
 %% ----------
 
-inclinations = pi/2:pi/2;%0:pi/180:pi/2;
-azimuths = 0:4*pi/180:2*pi;%0:0;
-runs = 0:1:49;
+inclinations = 0:22.5*pi/180:pi/2;
+azimuths = 0:0;%0:4*pi/180:2*pi;
+runs = 1:1;
 
 % Global params - these will be the same whether sim or fit
 
-number_of_spots = 2;
+number_of_spots = 1;
 scalefactor = 1;
-padding = 0.35; % for avoiding edges
+padding = 0.2; % for avoiding edges
 inner_bound = padding;
 outer_bound = 1 - 2*padding;
 pixel_size_nm = 51.2/scalefactor;
-image_size_nm = sqrt(number_of_spots)*2000;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
+image_size_nm = sqrt(number_of_spots)*1500;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
 image_size_px = roundToOdd(image_size_nm/pixel_size_nm);%roundToOdd(201);%101*scalefactor); % must be odd
 
 % Attocube params
@@ -56,8 +56,9 @@ for run = 1:length(runs)
     
             fprintf('Running inc=%.2f az=%.2f\n', inclination_deg, azimuth_deg);
     
-            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/2spot_inc90/sim_inc%i_az%i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
-    
+            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/background_images/lowN/sim_inc%03i_az%03i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
+            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/background_images/lowN/params_inc%03i_az%03i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
+
             % Need this for checking distance from neighbours
             positionX_nm_array = [];
             positionY_nm_array = [];
@@ -68,31 +69,35 @@ for run = 1:length(runs)
     
             for i = 1:number_of_spots
                                 
-                min_distance_nm = 1000;
-                valid_position = false;
+                % min_distance_nm = 1000;
+                % valid_position = false;
+                % 
+                % while ~valid_position
+                % 
+                %     % Generate a random position avoiding edges
+                %     relative_x = inner_bound + outer_bound * rand();
+                %     relative_y = inner_bound + outer_bound * rand();
+                % 
+                %     % Convert to nm position
+                %     positionX_nm = (relative_x - 0.5) * image_size_nm;
+                %     positionY_nm = (relative_y - 0.5) * image_size_nm;
+                % 
+                %     % Check distance from all existing spots
+                %     if isempty(positionX_nm_array)
+                %         valid_position = true; % First spot is always valid
+                %     else
+                %         distances = sqrt((positionX_nm_array - positionX_nm).^2 + ...
+                %                          (positionY_nm_array - positionY_nm).^2);
+                %         if all(distances >= min_distance_nm)
+                %             valid_position = true;
+                %         end
+                %     end
+                % 
+                % end
             
-                while ~valid_position
-            
-                    % Generate a random position avoiding edges
-                    relative_x = inner_bound + outer_bound * rand();
-                    relative_y = inner_bound + outer_bound * rand();
-            
-                    % Convert to nm position
-                    positionX_nm = (relative_x - 0.5) * image_size_nm;
-                    positionY_nm = (relative_y - 0.5) * image_size_nm;
-            
-                    % Check distance from all existing spots
-                    if isempty(positionX_nm_array)
-                        valid_position = true; % First spot is always valid
-                    else
-                        distances = sqrt((positionX_nm_array - positionX_nm).^2 + ...
-                                         (positionY_nm_array - positionY_nm).^2);
-                        if all(distances >= min_distance_nm)
-                            valid_position = true;
-                        end
-                    end
-                end
-            
+                positionX_nm = 0;%-pixel_size_nm/2 + rand*pixel_size_nm;
+                positionY_nm = 0;%-pixel_size_nm/2 + rand*pixel_size_nm;
+
                 angleInclination = inclination;%pi*rand;%(i-1)*(pi/2)/number_of_spots;%pi*rand; % symmetric about pi/2
                 angleAzimuth = azimuth;%2*pi*rand;%0; % doesn't affect anything
             
@@ -119,14 +124,36 @@ for run = 1:length(runs)
             elapsed_time = toc;
             fprintf('    Generated frame in %.2f seconds\n', elapsed_time);
     
-            % Output as tif stack
-            psf_total_image = mat2gray(psf_total_image);
-            psf_total_image = uint8(255*psf_total_image);
-            imwrite(psf_total_image, output_path);
-            fprintf('Simulation output to \n %s\n', output_path);
+            % % Output as png
+            % psf_total_image = uint32(psf_total_image);
+            % display_image = double(psf_total_image); % Convert to double for calculations
+            % display_image = (display_image - min(display_image(:))) / (max(display_image(:)) - min(display_image(:)));
+            % imwrite(display_image, output_path);
+
+            % Output as tif
+            psf_total_image = uint32(psf_total_image);
+            t = Tiff(output_path, 'w');
+            tagstruct.ImageLength = image_size_px;  % Set image height
+            tagstruct.ImageWidth = image_size_px;   % Set image width
+            tagstruct.Photometric = Tiff.Photometric.MinIsBlack;  % Grayscale
+            tagstruct.BitsPerSample = 32;  % 16-bit per pixel (or 32-bit if needed)
+            tagstruct.SamplesPerPixel = 1;  % Grayscale (1 channel)
+            tagstruct.RowsPerStrip = 16;   % Strip length for compression
+            tagstruct.Compression = Tiff.Compression.LZW;  % Lossless compression (optional)
+            tagstruct.Software = 'MATLAB';
+            t.setTag(tagstruct);
+            t.write(psf_total_image);
+            t.close();
     
+            % % Clip values just for display
+            % display_image = imread(output_path);
+            % display_image = double(display_image); % Convert to double for calculations
+            % display_image = (display_image - min(display_image(:))) / (max(display_image(:)) - min(display_image(:)));
+            % imshow(display_image)
+
+            fprintf('Simulation output to \n %s\n', output_path);
+
             % Save ground truth info
-            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/2spot_inc90/params_inc%i_az%i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
     
             fileID = fopen(data_output_path, 'w');
             fprintf(fileID, '%% ground truth for sim_inc%i_az%i_run%i.tif\n', round(inclination_deg), round(azimuth_deg), round(run));

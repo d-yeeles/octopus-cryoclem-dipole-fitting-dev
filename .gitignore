@@ -1,4 +1,7 @@
 .idea/
 *.ome.tif
+*.tif
+*.mp4
+*.png
 attic/
 */attic/

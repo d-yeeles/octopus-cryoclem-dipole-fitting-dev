@@ -15,14 +15,14 @@ classdef FitPSF_gaussian
             'x', Length([-800 800], 'nm'), ...
             'y', Length([-800 800], 'nm'), ...
             'defocus', Length([-2000 2000], 'nm'), ...
-            'inclination', [0, pi], ...       % dave jan 2025 - adding angle optimiser
-            'azimuth', [0, 2*pi]);          % dave jan 2025 - adding angle optimiser
+            'inclination', [0, pi/2], ...       % dave jan 2025 - adding angle optimiser
+            'azimuth', [-Inf, Inf]);          % dave jan 2025 - adding angle optimiser
         
         parameterStartValues = struct( ...
             'x', Length(-100 + 200 * rand(), 'nm'), ...
             'y', Length(-100 + 200 * rand(), 'nm'), ...
             'defocus', Length(-500 + 1000 * rand(), 'nm'), ...
-            'inclination', rand() * pi, ...   % dave jan 2025 - adding angle optimiser
+            'inclination', rand() * pi/2, ...   % dave jan 2025 - adding angle optimiser
             'azimuth', rand() * 2 * pi ...  % dave jan 2025 - adding angle optimiser
             );
         
@@ -117,220 +117,10 @@ classdef FitPSF_gaussian
             estimatesPositionDefocusML = fmincon(@(x) -lnpdf(image, x), startValues, [], [], [], [], lowerBounds, upperBounds, [], options);
         end
 
-        % % dave jan 2025 - no inclination, for hybrid optimising
-        % function estimatesPositionDefocusLS = fitLeastSquaresPSF_noinc(obj, image, psfEstimate)
-        %     % Fix inclination to its initial value
-        %     fixedInclination = obj.parameterStartValues.inclination; % Fix inclination
-        % 
-        %     % Define the fitting function, excluding inclination
-        %     funPsf = @(lateralPositionDefocusAzimuth, xdata) createFitPSF(...
-        %         obj, psfEstimate, [lateralPositionDefocusAzimuth(1:3), fixedInclination, lateralPositionDefocusAzimuth(4)]);
-        % 
-        %     % Dummy xdata for lsqcurvefit
-        %     xdata = zeros(obj.psf.nPixels, obj.psf.nPixels);
-        % 
-        %     % Optimization options
-        %     options = optimoptions('lsqcurvefit', 'Algorithm', 'trust-region-reflective', ...
-        %         'OptimalityTolerance', 5e-7, 'Display', 'off');
-        % 
-        %     % Start values excluding inclination
-        %     startValues = [obj.parameterStartValues.x.inNanometer, ...
-        %                    obj.parameterStartValues.y.inNanometer, ...
-        %                    obj.parameterStartValues.defocus.inNanometer, ...
-        %                    obj.parameterStartValues.azimuth]; % Exclude inclination
-        % 
-        %     % Bounds excluding inclination
-        %     defocusBounds = obj.parameterBounds.defocus.inNanometer;
-        %     xBounds = obj.parameterBounds.x.inNanometer;
-        %     yBounds = obj.parameterBounds.y.inNanometer;
-        %     azimuthBounds = obj.parameterBounds.azimuth;
-        %     lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), azimuthBounds(1)];
-        %     upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), azimuthBounds(2)];
-        % 
-        %     % Perform optimization
-        %     reducedEstimates = lsqcurvefit(funPsf, startValues, xdata, image, lowerBounds, upperBounds, options);
-        % 
-        %     % Combine the fixed inclination with the optimized values
-        %     estimatesPositionDefocusLS = [reducedEstimates(1:3), fixedInclination, reducedEstimates(4)];
-        % end
-        % 
-        % % dave jan 2025 - no inclination, for hybrid optimising
-        % function estimatesPositionDefocusML = fitMaxLikelihoodPSF_noinc(obj, image, psfEstimate, startValues)
-        %     fixedInclination = startValues(4);  % The initial inclination value
-        %     lnpdf = @(z,lateralPositionAndDefocus) lnpdfFunction(obj,psfEstimate,z,[lateralPositionAndDefocus(1:3), fixedInclination, lateralPositionAndDefocus(4)]);
-        % 
-        %     defocusBounds = obj.parameterBounds.defocus.inNanometer;
-        %     xBounds = obj.parameterBounds.x.inNanometer;
-        %     yBounds = obj.parameterBounds.y.inNanometer;
-        %     azimuthBounds = obj.parameterBounds.azimuth;
-        %     lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), azimuthBounds(1)];
-        %     upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), azimuthBounds(2)];
-        % 
-        %     reducedStartValues = [startValues(1:3), startValues(5)];
-        %     options = optimoptions(@fmincon, 'Display', 'off', 'StepTolerance', 1e-10, 'OptimalityTolerance', 1e-10);
-        %     reducedEstimates = fmincon(@(x) -lnpdf(image, x), reducedStartValues, [], [], [], [], lowerBounds, upperBounds, [], options);
-        %     estimatesPositionDefocusML = [reducedEstimates(1:3), fixedInclination, reducedEstimates(4)];
-        % end
-
-        % % dave jan 2025 - add inclination penalty to fminunc
-        % % no effect
-        % function estimatesPositionDefocusMLpenalty = fitMaxLikelihoodPSFpenalty(obj, image, psfEstimate, startValues)
-        %     lnpdf = @(z,lateralPositionAndDefocus) lnpdfFunction(obj,psfEstimate,z,lateralPositionAndDefocus);
-        %     options = optimoptions(@fminunc, 'Display', 'off', 'StepTolerance', 1e-10, 'OptimalityTolerance', 1e-10);
-        %     % -lnpdf(image,x) changed to:
-        %     % penalty_weight*inclination^2 - lnpdf(image,x)
-        %     estimatesPositionDefocusML = fminunc(@(x) (1e-40)*log(1 + 1/abs(x(4))) - lnpdf(image,x), startValues, options);
-        % end
-        %
-        % dave jan 2025 - try genetic algorithm instead of fminunc
-        % performance of this was pretty bad for all params, 
-        % and with longer computation time than fminunc
-        % (which was only bad for inclination + azimuth)
-        % function estimatesPositionDefocusGA = fitGeneticAlgorithmPSF(obj, image, psfEstimate)
-        %     % Define the cost function to minimize
-        %     costFunction = @(x) lnpdfFunction(obj, psfEstimate, image, x);
-        % 
-        %     % Lower and Upper bounds for each of the parameters        
-        %     defocusBounds = obj.parameterBounds.defocus.inNanometer;
-        %     xBounds = obj.parameterBounds.x.inNanometer;
-        %     yBounds = obj.parameterBounds.y.inNanometer;
-        %     inclinationBounds = obj.parameterBounds.inclination; % dave jan 2025 - adding angle optimiser
-        %     azimuthBounds = obj.parameterBounds.azimuth;     % dave jan 2025 - adding angle optimiser
-        %     lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), inclinationBounds(1), azimuthBounds(1)]; % dave jan 2025 - adding angle optimiser
-        %     upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), inclinationBounds(2), azimuthBounds(2)]; % dave jan 2025 - adding angle optimiser
-        % 
-        % 
-        %     % Set GA options (make sure they are correctly configured)
-        %     options = optimoptions('ga', 'Display', 'iter', 'PopulationSize', 100, 'MaxGenerations', 15, ...
-        %                             'EliteCount', 10, 'CrossoverFraction', 0.9, 'PlotFcn', @gaplotbestf);
-        % 
-        %     % Run the genetic algorithm to minimize the cost function
-        %     [optimizedParams, ~] = ga(costFunction, 5, [], [], [], [], lowerBounds, upperBounds, [], options);  % 5 parameters
-        % 
-        %     % Store the result in the estimatesPositionDefocusGA structure
-        %     estimatesPositionDefocusGA = optimizedParams;  % Store the parameters directly
-        % end
-        % 
-        % % dave jan 2025 - try simulated annealing instead of fminunc
-        % % performance of this was pretty bad for all params, 
-        % % and with longer computation time than fminunc
-        % % (which was only bad for inclination + azimuth)
-        % function estimatesPositionDefocusSA = fitSimulatedAnnealingPSF(obj, image, psfEstimate)
-        %     % Define the cost function to minimize
-        %     costFunction = @(x) lnpdfFunction(obj, psfEstimate, image, x);
-        % 
-        %     startValues = [obj.parameterStartValues.x.inNanometer, ...
-        %         obj.parameterStartValues.y.inNanometer, ...
-        %         obj.parameterStartValues.defocus.inNanometer, ...
-        %         obj.parameterStartValues.inclination, ... % dave jan 2025 - adding angle optimiser
-        %         obj.parameterStartValues.azimuth]; % dave jan 2025 - adding angle optimiser
-        % 
-        %     defocusBounds = obj.parameterBounds.defocus.inNanometer;
-        %     xBounds = obj.parameterBounds.x.inNanometer;
-        %     yBounds = obj.parameterBounds.y.inNanometer;
-        %     inclinationBounds = obj.parameterBounds.inclination; % dave jan 2025 - adding angle optimiser
-        %     azimuthBounds = obj.parameterBounds.azimuth;     % dave jan 2025 - adding angle optimiser
-        %     lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), inclinationBounds(1), azimuthBounds(1)]; % dave jan 2025 - adding angle optimiser
-        %     upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), inclinationBounds(2), azimuthBounds(2)]; % dave jan 2025 - adding angle optimiser
-        % 
-        % 
-        %     % Set SA options (make sure they are correctly configured)
-        %     % options = optimoptions('simulannealbnd', 'Display', 'iter', 'MaxIterations', 1000, ...
-        %     %                        'InitialTemperature', 100, 'TemperatureFcn', @temperatureexp, 'ReannealInterval', 50);
-        %     options = optimoptions('simulannealbnd', ...
-        %         'Display', 'iter', ...               % Show iteration details in the command window
-        %         'MaxIterations', 10000, ...            % Maximum number of iterations (higher for more thorough search)
-        %         'MaxFunctionEvaluations', 10000, ...  % Maximum number of function evaluations (use if large function evaluations are expensive)
-        %         'InitialTemperature', 10000, ...        % Initial "temperature" to explore the solution space
-        %         'TemperatureFcn', @temperatureexp, ...        % Initial "temperature" to explore the solution spaceQ
-        %         'FunctionTolerance', 1e-20);
-        % 
-        %     % Run the simulated annealing to minimize the cost function
-        %     [optimizedParams, ~] = simulannealbnd(costFunction, startValues, lowerBounds, upperBounds, options);
-        % 
-        %     % Store the result in the estimatesPositionDefocusGA structure
-        %     estimatesPositionDefocusSA = optimizedParams;  % Store the parameters directly
-        % end
-        % 
-        % dave jan 2025
-        % new GA that only goes on angles. ML used for positions
-        function estimatesPositionDefocusGA = fitGeneticAlgorithmPSF_onlyinc(obj, image, psfEstimate, optimizedParams)
-            % Define the cost function to minimize
-            costFunction = @(x) lnpdfFunction(obj, psfEstimate, image, x);
-
-            % Lower and Upper bounds for each of the parameters (only inclination and azimuth)
-            defocusBounds = obj.parameterBounds.defocus.inNanometer;
-            xBounds = obj.parameterBounds.x.inNanometer;
-            yBounds = obj.parameterBounds.y.inNanometer;
-            inclinationBounds = obj.parameterBounds.inclination; 
-            azimuthBounds = obj.parameterBounds.azimuth;
-
-            % Fixed parameters from the first optimization (x, y, defocus)
-            fixedX = optimizedParams(1);
-            fixedY = optimizedParams(2);
-            fixedDefocus = optimizedParams(3);
-
-            % The initial guess for the GA is just the initial values of inclination and azimuth
-            initialGuessInc = optimizedParams(4);  % inclination and azimuth
-            initialGuessAz = optimizedParams(5);  % inclination and azimuth
-
-            % Lower and upper bounds for inclination and azimuth
-            lowerBounds = [inclinationBounds(1), azimuthBounds(1)];
-            upperBounds = [inclinationBounds(2), azimuthBounds(2)];
-
-            % Set GA options (make sure they are correctly configured)
-            options = optimoptions('ga', 'Display', 'iter', 'PopulationSize', 100, 'MaxGenerations', 20, ...
-                                    'EliteCount', 50, 'CrossoverFraction', 0.9, 'PlotFcn', @gaplotbestf);
-
-            % Run the genetic algorithm to minimize the cost function (the 1 here is number of params to optimise over)
-            [optimizedInclinationAzimuth, ~] = ga(@(params) costFunction([fixedX, fixedY, fixedDefocus, params(1), params(2)]), 2, [], [], [], [], lowerBounds, upperBounds, [], options);
-
-            % Store the result in the estimatesPositionDefocusGA structure
-            estimatesPositionDefocusGA = [fixedX, fixedY, fixedDefocus, optimizedInclinationAzimuth(1), optimizedInclinationAzimuth(2)];
-        end
-        % 
-        %
-        % % dave jan 2025
-        % % new SA that only goes on angles. ML used for positions
-        % function estimatesPositionDefocusSA = fitSimulatedAnnealingPSF(obj, image, psfEstimate, optimizedParams)
-        %     % Define the cost function to minimize (same as for the GA)
-        %     costFunction = @(x) lnpdfFunction(obj, psfEstimate, image, x);
-        % 
-        %     % Fixed parameters from the first optimization (x, y, defocus)
-        %     fixedX = optimizedParams(1);
-        %     fixedY = optimizedParams(2);
-        %     fixedDefocus = optimizedParams(3);
-        %     fixedAzimuth = optimizedParams(5); % Keep azimuth fixed (for now)
-        % 
-        %     % The initial guess for the SA is just the initial value of inclination
-        %     initialGuess = optimizedParams(4);  % inclination
-        % 
-        %     % Lower and upper bounds for inclination
-        %     inclinationBounds = obj.parameterBounds.inclination; 
-        %     lowerBounds = [inclinationBounds(1)];
-        %     upperBounds = [inclinationBounds(2)];
-        % 
-        %     % Define the objective function for inclination optimization (fixed x, y, defocus, azimuth)
-        %     objectiveFunction = @(inclination) costFunction([fixedX, fixedY, fixedDefocus, inclination, fixedAzimuth]);
-        % 
-        %     % Set Simulated Annealing options
-        %     % optionsSA = optimoptions('simulannealbnd', 'Display', 'iter', 'MaxIterations', 1000, 'MaxTime', 6000);
-        %     optionsSA = optimoptions('simulannealbnd', 'Display', 'iter', 'MaxIterations', 1000, ...
-        %         'InitialTemperature', 100, 'TemperatureFcn', @temperatureexp, 'ReannealInterval', 50);
-        %     % Run Simulated Annealing to minimize the cost function for inclination
-        %     [optimizedInclination, ~] = simulannealbnd(objectiveFunction, initialGuess, lowerBounds, upperBounds, optionsSA);
-        % 
-        %     % Combine the optimized inclination with the fixed x, y, defocus, and azimuth
-        %     estimatesPositionDefocusSA = [fixedX, fixedY, fixedDefocus, optimizedInclination, fixedAzimuth];
-        % end
-
-
-
         function currentlnpdf = lnpdfFunction(obj,psfEstimate,z,lateralPositionAndDefocus) 
             currentPSF = createFitPSF(obj, psfEstimate, lateralPositionAndDefocus); 
             currentlnpdf = sum(z.*log(currentPSF)  - currentPSF - log(gamma(z+1)) , 'all');
         end
-
         
         function currentFitPSF = createFitPSF(obj, psfEstimate, lateralPositionAndDefocus)
             psfEstimate.position = Length([lateralPositionAndDefocus(1:2), 0], 'nm');
@@ -419,7 +209,7 @@ classdef FitPSF_gaussian
             %         mkdir(outputDirectory);  % Create the directory if it doesn't exist
             %     end
             %     timestamp = datestr(now, 'yyyymmdd_HHMMSS_FFF'); 
-            %     filename = sprintf('iteration_%s.png', timestamp);
+            %     filename = sprintf('iteration_%s.tif', timestamp);
             %     imwrite(mat2gray(currentFitPSF), fullfile(outputDirectory, filename));
             % end
 

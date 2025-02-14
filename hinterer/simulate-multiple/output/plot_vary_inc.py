@@ -55,29 +55,20 @@ data_gaussian = pd.DataFrame(columns=[
 
 data_hinterer = data_gaussian.copy()
 
-# Importing all the data from each dir
-for subdir in os.listdir("."):
-    if os.path.isdir(subdir) and subdir.startswith(("2spot_az", "1spot_az")):
-        sys.path.insert(0, os.path.join(".", subdir))
+# Importing all the data from each results file
+subdirectory = "2spot_vary_inc"
+for filename in os.listdir(subdirectory):
+#    if filename.startswith("fitting_results_az") and filename.endswith("_gaussian.py"):
+    if filename.startswith("fitting_results_gaussian_redo"):
 
-        gaussian = None
-        hinterer = None
-
-        try:
-            import fitting_results_gaussian as gaussian
-            importlib.reload(gaussian)  # Reload in case of caching
-        except ModuleNotFoundError:
-            print(f"Gaussian data not found in {subdir}. Skipping import.")
-
-        try:
-            import fitting_results_hinterer as hinterer
-            importlib.reload(hinterer)  # Reload in case of caching
-        except ModuleNotFoundError:
-            print(f"Hinterer data not found in {subdir}. Skipping import.")
-
-        if gaussian:
-
-            newdata_gaussian = pd.DataFrame({
+        file_path = os.path.join(subdirectory, filename)
+        
+        module_name = "gaussian"
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        gaussian = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gaussian)
+        
+        newdata_gaussian = pd.DataFrame({
                 "x_tru": gaussian.x_tru,
                 "y_tru": gaussian.y_tru,
                 "inc_tru": gaussian.inc_tru,
@@ -94,16 +85,25 @@ for subdir in os.listdir("."):
                 "perp_err": compute_para_perp(gaussian.x_err, gaussian.y_err, gaussian.az_tru)[1]
             })
 
-            if data_gaussian.empty:
-                data_gaussian = newdata_gaussian
-            else:
-                #data_gaussian = data_gaussian.reset_index(drop=True)
-                data_gaussian = pd.concat([data_gaussian, newdata_gaussian], ignore_index=True)
+        if data_gaussian.empty:
+            data_gaussian = newdata_gaussian
+        else:
+            #data_gaussian = data_gaussian.reset_index(drop=True)
+            data_gaussian = pd.concat([data_gaussian, newdata_gaussian], ignore_index=True)
 
 
-        if hinterer:
+
+#    elif filename.startswith("fitting_results_az") and filename.endswith("_hinterer.py"):
+    elif filename.startswith("fitting_results_hinterer_redo"):
+
+        file_path = os.path.join(subdirectory, filename)
+ 
+        module_name = "hinterer"
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        hinterer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hinterer)
         
-            newdata_hinterer = pd.DataFrame({
+        newdata_hinterer = pd.DataFrame({
                 "x_tru": hinterer.x_tru,
                 "y_tru": hinterer.y_tru,
                 "inc_tru": hinterer.inc_tru,
@@ -118,16 +118,13 @@ for subdir in os.listdir("."):
                 "az_err": hinterer.az_err,
                 "para_err": compute_para_perp(hinterer.x_err, hinterer.y_err, hinterer.az_tru)[0],
                 "perp_err": compute_para_perp(hinterer.x_err, hinterer.y_err, hinterer.az_tru)[1]
-            })  
-        
-            # Append
+            })
 
-            if data_hinterer.empty:
-                data_hinterer = newdata_hinterer
-            else:
-                #data_hinterer = data_hinterer.reset_index(drop=True)
-                data_hinterer = pd.concat([data_hinterer, newdata_hinterer], ignore_index=True)
-
+        if data_hinterer.empty:
+            data_hinterer = newdata_hinterer
+        else:
+            #data_hinterer = data_hinterer.reset_index(drop=True)
+            data_hinterer = pd.concat([data_hinterer, newdata_hinterer], ignore_index=True)
 
 # Convert rad to deg
 angle_columns = ["inc_tru", "az_tru", "inc_est", "az_est", "inc_err", "az_err"]
@@ -135,13 +132,20 @@ data_gaussian[angle_columns] = data_gaussian[angle_columns] * 180 / np.pi
 data_hinterer[angle_columns] = data_hinterer[angle_columns] * 180 / np.pi
 
 # Account for wrapping of inc around 180 degrees:
-data_gaussian["inc_err"] = np.minimum(np.abs(data_gaussian["inc_err"]), np.abs(180 - np.abs(data_gaussian["inc_err"])))
-data_hinterer["inc_err"] = np.minimum(np.abs(data_hinterer["inc_err"]), np.abs(180 - np.abs(data_hinterer["inc_err"])))
+#data_gaussian["inc_err"] = np.minimum(np.abs(data_gaussian["inc_err"]), np.abs(180 - np.abs(data_gaussian["inc_err"])))
+#data_hinterer["inc_err"] = np.minimum(np.abs(data_hinterer["inc_err"]), np.abs(180 - np.abs(data_hinterer["inc_err"])))
+data_gaussian["inc_err"] = np.mod(data_gaussian["inc_err"], 180)
+data_hinterer["inc_err"] = np.mod(data_hinterer["inc_err"], 180)
+data_gaussian["inc_err"] = np.minimum(np.abs(data_gaussian["inc_err"]), 180 - np.abs(data_gaussian["inc_err"]))
+data_hinterer["inc_err"] = np.minimum(np.abs(data_hinterer["inc_err"]), 180 - np.abs(data_hinterer["inc_err"]))
 
-# Account for wrapping of inc around 360 degrees:
-data_gaussian["az_err"] = np.minimum(np.abs(data_gaussian["az_err"]), np.abs(360 - np.abs(data_gaussian["az_err"])))
-data_hinterer["az_err"] = np.minimum(np.abs(data_hinterer["az_err"]), np.abs(360 - np.abs(data_hinterer["az_err"])))
-
+# Account for wrapping of az around 360 degrees:
+#data_gaussian["az_err"] = np.minimum(np.abs(data_gaussian["az_err"]), np.abs(360 - np.abs(data_gaussian["az_err"])))
+#data_hinterer["az_err"] = np.minimum(np.abs(data_hinterer["az_err"]), 360 - np.abs(data_hinterer["az_err"]))
+data_gaussian["az_err"] = np.mod(data_gaussian["az_err"], 360)
+data_hinterer["az_err"] = np.mod(data_hinterer["az_err"], 360)
+data_gaussian["az_err"] = np.minimum(np.abs(data_gaussian["az_err"]), 360 - np.abs(data_gaussian["az_err"]))
+data_hinterer["az_err"] = np.minimum(np.abs(data_hinterer["az_err"]), 360 - np.abs(data_hinterer["az_err"]))
 
 
 
@@ -153,7 +157,7 @@ output_dir = './results_plots/'
 # Overviews
 
 # Generate plots for each fixed azimuth
-for azimuth in [0, 45, 90, 135]:
+for azimuth in [0, 45, 90, 135, 180]:
 
 #    data_gaussian_fixed_az = data_gaussian[round(data_gaussian['az_tru'] / 5) * 5 == azimuth]
 #    data_hinterer_fixed_az = data_hinterer[round(data_hinterer['az_tru'] / 5) * 5 == azimuth]
@@ -391,7 +395,7 @@ for azimuth in [0, 45, 90, 135]:
 # Histograms etc.
 
 # Generate plots for each fixed azimuth
-for azimuth in [0, 45, 90, 135]:
+for azimuth in [0, 45, 90, 135, 180]:
 
     for index, data_model in enumerate([data_gaussian, data_hinterer]):
 
@@ -536,8 +540,8 @@ for inc in data_gaussian['inc_tru'].unique():
     std2 = np.std(data2)
     plt.imshow(img, cmap='gray', aspect='auto', extent=[-500, 500, -500, 500])
     plt.scatter(data1, data2, s=2, color='red', label='gaussian')
-    plt.axvline(mean1, color='red', linewidth=1, alpha=0.5, label=f'μ = ({mean1:.2f}, {mean2:.2f})')
-    plt.axhline(mean2, color='red', linewidth=1, alpha=0.5)
+    plt.axvline(mean1, color='red', linewidth=1, label=f'μ = ({mean1:.2f}, {mean2:.2f})')
+    plt.axhline(mean2, color='red', linewidth=1)
 
     data1 = para_err_hinterer
     data2 = perp_err_hinterer
@@ -546,11 +550,11 @@ for inc in data_gaussian['inc_tru'].unique():
     mean2 = np.mean(data2)
     std2 = np.std(data2)
     plt.scatter(data1, data2, s=2, color='lime', label='hinterer')
-    plt.axvline(mean1, color='lime', linewidth=1, alpha=0.5, label=f'μ = ({mean1:.2f}, {mean2:.2f})')
-    plt.axhline(mean2, color='lime', linewidth=1, alpha=0.5)
+    plt.axvline(mean1, color='lime', linewidth=1, label=f'μ = ({mean1:.2f}, {mean2:.2f})')
+    plt.axhline(mean2, color='lime', linewidth=1)
 
-    plt.axvline(0, color='white', alpha=0.5, linewidth=1, linestyle='dashed')
-    plt.axhline(0, color='white', alpha=0.5, linewidth=1, linestyle='dashed')
+    plt.axvline(0, color='white', linewidth=1)
+    plt.axhline(0, color='white', linewidth=1)
     plt.xlim(-500, 500)
     plt.ylim(-500, 500)
     plt.xlabel('Δ$\parallel$')
@@ -564,6 +568,7 @@ for inc in data_gaussian['inc_tru'].unique():
     plt.tight_layout()
 
     output_filename = f"plot_{round(inc):03d}.png"
+    os.makedirs(f"{output_dir}/animation_frames", exist_ok=True)
     plt.savefig(f"{output_dir}/animation_frames/{output_filename}")
     plt.close()     
 
@@ -571,8 +576,8 @@ for inc in data_gaussian['inc_tru'].unique():
 #command = f"ffmpeg -framerate 10 -i {output_dir}plot_%03d.png -vf \"scale=1800:-1:flags=lanczos\" vary_inclination.gif"
 command = f"ffmpeg -framerate 5 -i {output_dir}/animation_frames/plot_%03d.png -vf \"scale=1800:1000\" -c:v libx264 -pix_fmt yuv420p {output_dir}/vary_inclination_lowres.mp4"
 subprocess.run(command, shell=True, check=True)
-#command = f"rm {output_dir}/*png"
-#subprocess.run(command, shell=True, check=True)
+command = f"rm -r {output_dir}/animation_frames"
+subprocess.run(command, shell=True, check=True)
 
 
 
@@ -582,7 +587,7 @@ subprocess.run(command, shell=True, check=True)
 # Loop over each inclination, show where localisations placed, update image
 plt.rcParams.update({'font.size': 16})
 
-output_dir = './results_plots/'
+output_dir = './results_plots'
 
 #for inc in data_gaussian["inc_tru"][data_gaussian["x_err"]**2 + data_gaussian["y_err"]**2 < 60**2].unique()
 for inc in data_gaussian['inc_tru'].unique():
@@ -607,8 +612,8 @@ for inc in data_gaussian['inc_tru'].unique():
     std2 = np.std(data2)
     plt.imshow(img, cmap='gray', aspect='auto', extent=[-500, 500, -500, 500])
     plt.scatter(data1, data2, s=2, color='red', label='gaussian')
-    plt.axvline(mean1, color='red', linewidth=1, alpha=0.5, label=f'μ = ({mean1:.2f}, {mean2:.2f})')
-    plt.axhline(mean2, color='red', linewidth=1, alpha=0.5)
+    plt.axvline(mean1, color='red', linewidth=1, label=f'μ = ({mean1:.2f}, {mean2:.2f})')
+    plt.axhline(mean2, color='red', linewidth=1)
 
     data1 = para_err_hinterer
     data2 = perp_err_hinterer
@@ -617,11 +622,11 @@ for inc in data_gaussian['inc_tru'].unique():
     mean2 = np.mean(data2)
     std2 = np.std(data2)
     plt.scatter(data1, data2, s=2, color='lime', label='hinterer')
-    plt.axvline(mean1, color='lime', linewidth=1, alpha=0.5, label=f'μ = ({mean1:.2f}, {mean2:.2f})')
-    plt.axhline(mean2, color='lime', linewidth=1, alpha=0.5)
+    plt.axvline(mean1, color='lime', linewidth=1, label=f'μ = ({mean1:.2f}, {mean2:.2f})')
+    plt.axhline(mean2, color='lime', linewidth=1)
 
-    plt.axvline(0, color='white', alpha=0.5, linewidth=1, linestyle='dashed')
-    plt.axhline(0, color='white', alpha=0.5, linewidth=1, linestyle='dashed')
+    plt.axvline(0, color='white', linewidth=1)
+    plt.axhline(0, color='white', linewidth=1)
     plt.xlim(-500, 500)
     plt.ylim(-500, 500)
     plt.xlabel('Δ$\parallel$')
@@ -635,6 +640,7 @@ for inc in data_gaussian['inc_tru'].unique():
     plt.tight_layout()
 
     output_filename = f"plot_{round(inc):03d}.png"
+    os.makedirs(f"{output_dir}/animation_frames", exist_ok=True)
     plt.savefig(f"{output_dir}/animation_frames/{output_filename}")
     plt.close()     
 
@@ -642,8 +648,8 @@ for inc in data_gaussian['inc_tru'].unique():
 #command = f"ffmpeg -framerate 10 -i {output_dir}plot_%03d.png -vf \"scale=1800:-1:flags=lanczos\" vary_inclination.gif"
 command = f"ffmpeg -framerate 5 -i {output_dir}/animation_frames/plot_%03d.png -vf \"scale=1800:1000\" -c:v libx264 -pix_fmt yuv420p {output_dir}/vary_inclination_highres.mp4"
 subprocess.run(command, shell=True, check=True)
-#command = f"rm {output_dir}/*png"
-#subprocess.run(command, shell=True, check=True)
+command = f"rm -r {output_dir}/animation_frames"
+subprocess.run(command, shell=True, check=True)
 
 
 

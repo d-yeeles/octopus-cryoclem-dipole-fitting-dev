@@ -15,14 +15,14 @@ classdef FitPSF_angles
             'x', Length([-800 800], 'nm'), ...
             'y', Length([-800 800], 'nm'), ...
             'defocus', Length([-2000 2000], 'nm'), ...
-            'inclination', [0, pi], ...       % dave jan 2025 - adding angle optimiser
-            'azimuth', [0, 2*pi]);          % dave jan 2025 - adding angle optimiser
+            'inclination', [0, pi/2], ...       % dave jan 2025 - adding angle optimiser
+            'azimuth', [-Inf, Inf]);          % dave jan 2025 - adding angle optimiser
         
         parameterStartValues = struct( ...
             'x', Length(-100 + 200 * rand(), 'nm'), ...
             'y', Length(-100 + 200 * rand(), 'nm'), ...
             'defocus', Length(-500 + 1000 * rand(), 'nm'), ...
-            'inclination', rand() * pi, ...   % dave jan 2025 - adding angle optimiser
+            'inclination', rand() * pi/2, ...   % dave jan 2025 - adding angle optimiser
             'azimuth', rand() * 2 * pi ...  % dave jan 2025 - adding angle optimiser
             );
         
@@ -106,7 +106,7 @@ classdef FitPSF_angles
             %     'FunctionTolerance', 1e-20);        % Stop if the function value change is less than 1e-6
             % estimatesPositionDefocusML = fminunc(@(x) -lnpdf(image, x), startValues, options);
             % dave jan 2025
-            % using constrained version, because why wouldnt you?
+            % using constrained version, because why wouldn't you?
             defocusBounds = obj.parameterBounds.defocus.inNanometer;
             xBounds = obj.parameterBounds.x.inNanometer;
             yBounds = obj.parameterBounds.y.inNanometer;
@@ -252,42 +252,42 @@ classdef FitPSF_angles
         %     estimatesPositionDefocusSA = optimizedParams;  % Store the parameters directly
         % end
         % 
-        % dave jan 2025
-        % new GA that only goes on angles. ML used for positions
-        function estimatesPositionDefocusGA = fitGeneticAlgorithmPSF_onlyinc(obj, image, psfEstimate, optimizedParams)
-            % Define the cost function to minimize
-            costFunction = @(x) lnpdfFunction(obj, psfEstimate, image, x);
-
-            % Lower and Upper bounds for each of the parameters (only inclination and azimuth)
-            defocusBounds = obj.parameterBounds.defocus.inNanometer;
-            xBounds = obj.parameterBounds.x.inNanometer;
-            yBounds = obj.parameterBounds.y.inNanometer;
-            inclinationBounds = obj.parameterBounds.inclination; 
-            azimuthBounds = obj.parameterBounds.azimuth;
-
-            % Fixed parameters from the first optimization (x, y, defocus)
-            fixedX = optimizedParams(1);
-            fixedY = optimizedParams(2);
-            fixedDefocus = optimizedParams(3);
-
-            % The initial guess for the GA is just the initial values of inclination and azimuth
-            initialGuessInc = optimizedParams(4);  % inclination and azimuth
-            initialGuessAz = optimizedParams(5);  % inclination and azimuth
-
-            % Lower and upper bounds for inclination and azimuth
-            lowerBounds = [inclinationBounds(1), azimuthBounds(1)];
-            upperBounds = [inclinationBounds(2), azimuthBounds(2)];
-
-            % Set GA options (make sure they are correctly configured)
-            options = optimoptions('ga', 'Display', 'iter', 'PopulationSize', 100, 'MaxGenerations', 20, ...
-                                    'EliteCount', 50, 'CrossoverFraction', 0.9, 'PlotFcn', @gaplotbestf);
-
-            % Run the genetic algorithm to minimize the cost function (the 1 here is number of params to optimise over)
-            [optimizedInclinationAzimuth, ~] = ga(@(params) costFunction([fixedX, fixedY, fixedDefocus, params(1), params(2)]), 2, [], [], [], [], lowerBounds, upperBounds, [], options);
-
-            % Store the result in the estimatesPositionDefocusGA structure
-            estimatesPositionDefocusGA = [fixedX, fixedY, fixedDefocus, optimizedInclinationAzimuth(1), optimizedInclinationAzimuth(2)];
-        end
+        % % dave jan 2025
+        % % new GA that only goes on angles. ML used for positions
+        % function estimatesPositionDefocusGA = fitGeneticAlgorithmPSF_onlyinc(obj, image, psfEstimate, optimizedParams)
+        %     % Define the cost function to minimize
+        %     costFunction = @(x) lnpdfFunction(obj, psfEstimate, image, x);
+        % 
+        %     % Lower and Upper bounds for each of the parameters (only inclination and azimuth)
+        %     defocusBounds = obj.parameterBounds.defocus.inNanometer;
+        %     xBounds = obj.parameterBounds.x.inNanometer;
+        %     yBounds = obj.parameterBounds.y.inNanometer;
+        %     inclinationBounds = obj.parameterBounds.inclination; 
+        %     azimuthBounds = obj.parameterBounds.azimuth;
+        % 
+        %     % Fixed parameters from the first optimization (x, y, defocus)
+        %     fixedX = optimizedParams(1);
+        %     fixedY = optimizedParams(2);
+        %     fixedDefocus = optimizedParams(3);
+        % 
+        %     % The initial guess for the GA is just the initial values of inclination and azimuth
+        %     initialGuessInc = optimizedParams(4);  % inclination and azimuth
+        %     initialGuessAz = optimizedParams(5);  % inclination and azimuth
+        % 
+        %     % Lower and upper bounds for inclination and azimuth
+        %     lowerBounds = [inclinationBounds(1), azimuthBounds(1)];
+        %     upperBounds = [inclinationBounds(2), azimuthBounds(2)];
+        % 
+        %     % Set GA options (make sure they are correctly configured)
+        %     options = optimoptions('ga', 'Display', 'iter', 'PopulationSize', 100, 'MaxGenerations', 20, ...
+        %                             'EliteCount', 50, 'CrossoverFraction', 0.9, 'PlotFcn', @gaplotbestf);
+        % 
+        %     % Run the genetic algorithm to minimize the cost function (the 1 here is number of params to optimise over)
+        %     [optimizedInclinationAzimuth, ~] = ga(@(params) costFunction([fixedX, fixedY, fixedDefocus, params(1), params(2)]), 2, [], [], [], [], lowerBounds, upperBounds, [], options);
+        % 
+        %     % Store the result in the estimatesPositionDefocusGA structure
+        %     estimatesPositionDefocusGA = [fixedX, fixedY, fixedDefocus, optimizedInclinationAzimuth(1), optimizedInclinationAzimuth(2)];
+        % end
         % 
         %
         % % dave jan 2025
@@ -325,13 +325,11 @@ classdef FitPSF_angles
         % end
 
 
-
         function currentlnpdf = lnpdfFunction(obj,psfEstimate,z,lateralPositionAndDefocus) 
             currentPSF = createFitPSF(obj, psfEstimate, lateralPositionAndDefocus); 
             currentlnpdf = sum(z.*log(currentPSF)  - currentPSF - log(gamma(z+1)) , 'all');
         end
 
-        
         function currentFitPSF = createFitPSF(obj, psfEstimate, lateralPositionAndDefocus)
             psfEstimate.position = Length([lateralPositionAndDefocus(1:2), 0], 'nm');
             psfEstimate.defocus = Length(lateralPositionAndDefocus(3), 'nm');
@@ -339,24 +337,28 @@ classdef FitPSF_angles
             % dave jan 2025 - it kept going below 0 for some reason
             % Ensure inclination is within the range [0, 2*pi]
             % Might not need this now if using fmincon rather than fminunc
-            if lateralPositionAndDefocus(4) < 0 || lateralPositionAndDefocus(4) > 2*pi
-                disp('Inclination out of range [0, 2*pi]')
-                disp(lateralPositionAndDefocus(4));
-                lateralPositionAndDefocus(4) = mod(lateralPositionAndDefocus(4), 2*pi);  % Wrap the value to [0, 2*pi]
-                if lateralPositionAndDefocus(4) < 0
-                    lateralPositionAndDefocus(4) = lateralPositionAndDefocus(4) + 2*pi;  % Ensure positive value
-                end
-            end
+            lateralPositionAndDefocus(4) = mod(lateralPositionAndDefocus(4), 2*pi);
+            % % redundant, delete
+            % if lateralPositionAndDefocus(4) < 0 || lateralPositionAndDefocus(4) > 2*pi
+            %     % disp('Inclination out of range [0, 2*pi]')
+            %     % disp(lateralPositionAndDefocus(4));
+            %     lateralPositionAndDefocus(4) = mod(lateralPositionAndDefocus(4), 2*pi);  % Wrap the value to [0, 2*pi]
+            %     if lateralPositionAndDefocus(4) < 0
+            %         lateralPositionAndDefocus(4) = lateralPositionAndDefocus(4) + 2*pi;  % Ensure positive value
+            %     end
+            % end
             
             % Ensure azimuth is within the range [0, 2*pi]
-            if lateralPositionAndDefocus(5) < 0 || lateralPositionAndDefocus(5) > 2*pi
-                disp('Azimuth out of range [0, 2*pi]')
-                disp(lateralPositionAndDefocus(5));
-                lateralPositionAndDefocus(5) = mod(lateralPositionAndDefocus(5), 2*pi);  % Wrap the value to [0, 2*pi]
-                if lateralPositionAndDefocus(5) < 0
-                    lateralPositionAndDefocus(5) = lateralPositionAndDefocus(5) + 2*pi;  % Ensure positive value
-                end
-            end
+            lateralPositionAndDefocus(5) = mod(lateralPositionAndDefocus(5), 2*pi);
+            % % redundant, delete
+            % if lateralPositionAndDefocus(5) < 0 || lateralPositionAndDefocus(5) > 2*pi
+            %     % disp('Azimuth out of range [0, 2*pi]')
+            %     % disp(lateralPositionAndDefocus(5));
+            %     lateralPositionAndDefocus(5) = mod(lateralPositionAndDefocus(5), 2*pi);  % Wrap the value to [0, 2*pi]
+            %     if lateralPositionAndDefocus(5) < 0
+            %         lateralPositionAndDefocus(5) = lateralPositionAndDefocus(5) + 2*pi;  % Ensure positive value
+            %     end
+            % end
 
             psfEstimate.dipole = Dipole(lateralPositionAndDefocus(4), lateralPositionAndDefocus(5)); % dave jan 2025 - adding angle optimiser
 

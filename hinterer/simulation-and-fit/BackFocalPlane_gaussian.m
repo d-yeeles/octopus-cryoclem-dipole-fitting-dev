@@ -26,27 +26,20 @@ classdef BackFocalPlane_gaussian
 
             % This version probably wrong
 
-            % Extracting parameters from psfObj
-            RI = psfObj.refractiveIndices;
-            dipole = psfObj.dipole;
-            hIntermediate = psfObj.heightIntermediateLayer.inMeter;
-            pos = psfObj.position.inMeter;
-            z = pos(3);
-            focalLength = psfObj.objectiveFocalLength.inMeter;
-
             % Coordinates in the objective pupil
             par.nGrid = obj.nGrid;
             par.spacing = obj.unitKSpace;
             pupilMask = Mask(par);
-            [Kr, ~] = pupilMask.getPolarCoordinates; % Radial coordinates in the pupil
+            [Kr, ~] = pupilMask.getPolarCoordinates; % Normalised radial coordinates in the pupil
+            % Kr = pupilMask.radius; % Not normalised
 
             % Define Gaussian parameters
-            sigma = 0.5; % Standard deviation of the Gaussian
+            sigma = 0.3; % Standard deviation of the Gaussian
             amplitude = 1; % Peak amplitude of the Gaussian
 
             % Gaussian Electric Field
             % GaussianField = abs(amplitude * exp(-Kr.^2 / (2 * sigma^2)));
-            GaussianField = abs(amplitude * exp(-Kr.^2 / (2 * sigma^2)));
+            GaussianField = amplitude * exp(-Kr.^2 / (2 * sigma^2));
 
             % Output Gaussian electric field for both x and y components
             E_BFP.x = GaussianField; % x-component of the electric field
@@ -174,6 +167,71 @@ classdef BackFocalPlane_gaussian
             % 
             % % disp(amplitude)
             % % disp(sigma)
+
+
+            % % Extract parameters from the psfObj
+            % RI = psfObj.refractiveIndices;
+            % pos = psfObj.position.inMeter; % position in meters
+            % focalLength = psfObj.objectiveFocalLength.inMeter;
+            % wavelength = psfObj.wavelength.inMeter;
+            % 
+            % %% Ensure RI has three values
+            % if length(RI) == 1
+            %     RI = [RI, RI, RI];
+            % end
+            % 
+            % %% Pre-Calculations
+            % % Coordinates in the objective pupil
+            % par.nGrid = obj.nGrid;
+            % par.spacing = obj.unitKSpace;
+            % pupilMask = Mask(par);
+            % Kr = pupilMask.radius;
+            % 
+            % % Define Gaussian parameters
+            % gaussianCenterPolar = pos(1:2); % center in polar coordinates (r, theta)
+            % gaussianSigma = 400 / 2.355; % standard deviation (adjustable parameter). I think this needs to be in metres because pos is in metres
+            % 
+            % % Shift polar coordinates for Gaussian center
+            % deltaKr = Kr - gaussianCenterPolar(1); % radial distance shift
+            % 
+            % % Compute the Gaussian field in the back focal plane
+            % gaussianField = exp(-(deltaKr.^2) / (2 * gaussianSigma^2));
+            % 
+            % % Combine Gaussian envelope with phase factor
+            % E_BFP.x = gaussianField;
+            % E_BFP.y = gaussianField;
+
+
+
+
+            % % Extract parameters from the psfObj
+            % pos = psfObj.position.inMeter; % position in meters
+            % focalLength = psfObj.objectiveFocalLength.inMeter;
+            % 
+            % %% Pre-Calculations
+            % % Coordinates in the objective pupil
+            % par.nGrid = obj.nGrid;
+            % par.spacing = obj.unitKSpace;
+            % pupilMask = Mask(par);
+            % [~, maskAngle] = pupilMask.getPolarCoordinates();
+            % Kr = pupilMask.radius;
+            % 
+            % % Define Gaussian parameters
+            % gaussianCenter = pos(1:2); % center in x and y from pos
+            % gaussianSigma = (400e30)/(2*sqrt(2*log(2))); % standard deviation (FWHM of a blob, guessed at 400nm. think this should be in m though.)
+            % 
+            % % Convert polar coordinates to Cartesian for Gaussian calculation
+            % [X, Y] = pol2cart(maskAngle, Kr);
+            % 
+            % % Compute the Gaussian field in the back focal plane
+            % gaussianEnvelope = exp(-((X - gaussianCenter(1)).^2 + (Y - gaussianCenter(2)).^2) / (2 * gaussianSigma^2));
+            % 
+            % % Combine Gaussian envelope with phase factor
+            % E_BFP.x = gaussianEnvelope;
+            % E_BFP.y = gaussianEnvelope;
+
+
+
 
         end
 

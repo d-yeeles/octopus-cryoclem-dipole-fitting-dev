@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import sys
-import importlib
+import importlib.util
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap
@@ -55,29 +55,23 @@ data_gaussian = pd.DataFrame(columns=[
 
 data_hinterer = data_gaussian.copy()
 
-# Importing all the data from each dir
-for subdir in os.listdir("."):
-    if os.path.isdir(subdir) and subdir.startswith(("2spot_inc", "1spot_inc")):
-        sys.path.insert(0, os.path.join(".", subdir))
 
-        gaussian = None
-        hinterer = None
 
-        try:
-            import fitting_results_gaussian as gaussian
-            importlib.reload(gaussian)  # Reload in case of caching
-        except ModuleNotFoundError:
-            print(f"Gaussian data not found in {subdir}. Skipping import.")
 
-        try:
-            import fitting_results_hinterer as hinterer
-            importlib.reload(hinterer)  # Reload in case of caching
-        except ModuleNotFoundError:
-            print(f"Hinterer data not found in {subdir}. Skipping import.")
+# Importing all the data from each results file
+subdirectory = "2spot_vary_az"
+for filename in os.listdir(subdirectory):
+#    if filename.startswith("fitting_results_inc") and filename.endswith("_gaussian.py"):
+    if filename.startswith("fitting_results_gaussian_redo"):
 
-        if gaussian:
-
-            newdata_gaussian = pd.DataFrame({
+        file_path = os.path.join(subdirectory, filename)
+        
+        module_name = "gaussian"
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        gaussian = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gaussian)
+        
+        newdata_gaussian = pd.DataFrame({
                 "x_tru": gaussian.x_tru,
                 "y_tru": gaussian.y_tru,
                 "inc_tru": gaussian.inc_tru,
@@ -94,15 +88,25 @@ for subdir in os.listdir("."):
                 "perp_err": compute_para_perp(gaussian.x_err, gaussian.y_err, gaussian.az_tru)[1]
             })
 
-            if data_gaussian.empty:
-                data_gaussian = newdata_gaussian
-            else:
-                #data_gaussian = data_gaussian.reset_index(drop=True)
-                data_gaussian = pd.concat([data_gaussian, newdata_gaussian], ignore_index=True)
+        if data_gaussian.empty:
+            data_gaussian = newdata_gaussian
+        else:
+            #data_gaussian = data_gaussian.reset_index(drop=True)
+            data_gaussian = pd.concat([data_gaussian, newdata_gaussian], ignore_index=True)
 
-        if hinterer:
+
+
+#    elif filename.startswith("fitting_results_inc") and filename.endswith("_hinterer.py"):
+    elif filename.startswith("fitting_results_hinterer_redo"):
+
+        file_path = os.path.join(subdirectory, filename)
         
-            newdata_hinterer = pd.DataFrame({
+        module_name = "hinterer"
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        hinterer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hinterer)
+        
+        newdata_hinterer = pd.DataFrame({
                 "x_tru": hinterer.x_tru,
                 "y_tru": hinterer.y_tru,
                 "inc_tru": hinterer.inc_tru,
@@ -117,15 +121,13 @@ for subdir in os.listdir("."):
                 "az_err": hinterer.az_err,
                 "para_err": compute_para_perp(hinterer.x_err, hinterer.y_err, hinterer.az_tru)[0],
                 "perp_err": compute_para_perp(hinterer.x_err, hinterer.y_err, hinterer.az_tru)[1]
-            })  
-        
-            # Append
+            })
 
-            if data_hinterer.empty:
-                data_hinterer = newdata_hinterer
-            else:
-                #data_hinterer = data_hinterer.reset_index(drop=True)
-                data_hinterer = pd.concat([data_hinterer, newdata_hinterer], ignore_index=True)
+        if data_hinterer.empty:
+            data_hinterer = newdata_hinterer
+        else:
+            #data_hinterer = data_hinterer.reset_index(drop=True)
+            data_hinterer = pd.concat([data_hinterer, newdata_hinterer], ignore_index=True)
 
 
 # Convert rad to deg
@@ -134,13 +136,20 @@ data_gaussian[angle_columns] = data_gaussian[angle_columns] * 180 / np.pi
 data_hinterer[angle_columns] = data_hinterer[angle_columns] * 180 / np.pi
 
 # Account for wrapping of inc around 180 degrees:
-data_gaussian["inc_err"] = np.minimum(np.abs(data_gaussian["inc_err"]), np.abs(180 - np.abs(data_gaussian["inc_err"])))
-data_hinterer["inc_err"] = np.minimum(np.abs(data_hinterer["inc_err"]), np.abs(180 - np.abs(data_hinterer["inc_err"])))
+#data_gaussian["inc_err"] = np.minimum(np.abs(data_gaussian["inc_err"]), np.abs(180 - np.abs(data_gaussian["inc_err"])))
+#data_hinterer["inc_err"] = np.minimum(np.abs(data_hinterer["inc_err"]), np.abs(180 - np.abs(data_hinterer["inc_err"])))
+data_gaussian["inc_err"] = np.mod(data_gaussian["inc_err"], 180)
+data_hinterer["inc_err"] = np.mod(data_hinterer["inc_err"], 180)
+data_gaussian["inc_err"] = np.minimum(np.abs(data_gaussian["inc_err"]), 180 - np.abs(data_gaussian["inc_err"]))
+data_hinterer["inc_err"] = np.minimum(np.abs(data_hinterer["inc_err"]), 180 - np.abs(data_hinterer["inc_err"]))
 
-# Account for wrapping of inc around 360 degrees:
-data_gaussian["az_err"] = np.minimum(np.abs(data_gaussian["az_err"]), np.abs(360 - np.abs(data_gaussian["az_err"])))
-data_hinterer["az_err"] = np.minimum(np.abs(data_hinterer["az_err"]), np.abs(360 - np.abs(data_hinterer["az_err"])))
-
+# Account for wrapping of az around 360 degrees:
+#data_gaussian["az_err"] = np.minimum(np.abs(data_gaussian["az_err"]), np.abs(360 - np.abs(data_gaussian["az_err"])))
+#data_hinterer["az_err"] = np.minimum(np.abs(data_hinterer["az_err"]), 360 - np.abs(data_hinterer["az_err"]))
+data_gaussian["az_err"] = np.mod(data_gaussian["az_err"], 360)
+data_hinterer["az_err"] = np.mod(data_hinterer["az_err"], 360)
+data_gaussian["az_err"] = np.minimum(np.abs(data_gaussian["az_err"]), 360 - np.abs(data_gaussian["az_err"]))
+data_hinterer["az_err"] = np.minimum(np.abs(data_hinterer["az_err"]), 360 - np.abs(data_hinterer["az_err"]))
 
 
 
