@@ -15,7 +15,7 @@ classdef FitPSF_PS_reparam
             'x', Length([-800 800], 'nm'), ...
             'y', Length([-800 800], 'nm'), ...
             'defocus', Length([-2000 2000], 'nm'), ...
-            'sinInclination', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
+            'cosInclination', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
             'cosAzimuth', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
             'sinAzimuth', [-1, 1]);          % dave jan 2025 - adding angle optimiser
         
@@ -23,7 +23,7 @@ classdef FitPSF_PS_reparam
             'x', Length(-100 + 200 * rand(), 'nm'), ...
             'y', Length(-100 + 200 * rand(), 'nm'), ...
             'defocus', Length(-500 + 1000 * rand(), 'nm'), ...
-            'sinInclination', 2*(rand()-0.5), ...   % dave jan 2025 - adding angle optimiser
+            'cosInclination', 2*(rand()-0.5), ...   % dave jan 2025 - adding angle optimiser
             'cosAzimuth', 2*(rand()-0.5), ...  % dave jan 2025 - adding angle optimiser
             'sinAzimuth', 2*(rand()-0.5) ...  % dave jan 2025 - adding angle optimiser
             );
@@ -134,26 +134,26 @@ classdef FitPSF_PS_reparam
             defocusBounds = obj.parameterBounds.defocus.inNanometer;
             xBounds = obj.parameterBounds.x.inNanometer;
             yBounds = obj.parameterBounds.y.inNanometer;
-            sinInclinationBounds = obj.parameterBounds.sinInclination;
+            cosInclinationBounds = obj.parameterBounds.cosInclination;
             cosAzimuthBounds = obj.parameterBounds.cosAzimuth;
             sinAzimuthBounds = obj.parameterBounds.sinAzimuth;
 
-            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), sinInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1)];
-            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), sinInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2)];
+            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1)];
+            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2)];
 
             % Set options for the Particle Swarm Optimization
 
             % Create a uniform grid for initial swarm positions
             % numParticlesPerDim = 3;
-            [xGrid, yGrid, defocusGrid, sinInclinationGrid, cosAzimuthGrid, sinAzimuthGrid] = ndgrid(...
+            [xGrid, yGrid, defocusGrid, cosInclinationGrid, cosAzimuthGrid, sinAzimuthGrid] = ndgrid(...
                 linspace(xBounds(1), xBounds(2), 3), ...
                 linspace(yBounds(1), yBounds(2), 3), ...
                 linspace(defocusBounds(1), defocusBounds(2), 2), ...
-                linspace(sinInclinationBounds(1), sinInclinationBounds(2), 2), ...
+                linspace(cosInclinationBounds(1), cosInclinationBounds(2), 2), ...
                 linspace(cosAzimuthBounds(1), cosAzimuthBounds(2), 2), ...
                 linspace(sinAzimuthBounds(1), sinAzimuthBounds(2), 2));
             % Reshape grid into an initial swarm matrix
-            initialSwarm = [xGrid(:), yGrid(:), defocusGrid(:), sinInclinationGrid(:), cosAzimuthGrid(:), sinAzimuthGrid(:)];
+            initialSwarm = [xGrid(:), yGrid(:), defocusGrid(:), cosInclinationGrid(:), cosAzimuthGrid(:), sinAzimuthGrid(:)];
             numParticles = 144; % this needs to be the multiplicative sum of each param given in the linspace above
             initialSwarm = initialSwarm(1:numParticles, :);
             
@@ -186,7 +186,7 @@ classdef FitPSF_PS_reparam
             psfEstimate.position = Length([lateralPositionAndDefocus(1:2), 0], 'nm');
             psfEstimate.defocus = Length(lateralPositionAndDefocus(3), 'nm');
 
-            inclination = 0.5*asin(lateralPositionAndDefocus(4));
+            inclination = 0.5*acos(lateralPositionAndDefocus(4));
             azimuth = atan2(lateralPositionAndDefocus(6), lateralPositionAndDefocus(5));
 
             % disp(lateralPositionAndDefocus(4))

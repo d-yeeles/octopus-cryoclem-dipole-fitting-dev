@@ -20,11 +20,11 @@
 function coord_px = nm_to_px(coord_nm, pixel_width_nm, image_width_px, x_or_y_flag)
 
     if x_or_y_flag == 'x'
-        coord_px =                  (coord_nm/pixel_width_nm + (image_width_px + 1)/2);
+        coord_px = (coord_nm / pixel_width_nm) + (image_width_px + 1) / 2;
     end
 
     if x_or_y_flag == 'y'
-        coord_px = image_width_px - (coord_nm/pixel_width_nm + (image_width_px + 0)/2);
+        coord_px = image_width_px - (coord_nm / pixel_width_nm) - (image_width_px + 1) / 2 + 1;
     end
 
 end

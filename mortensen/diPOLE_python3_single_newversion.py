@@ -1,10 +1,11 @@
 
-import diPOLE_python3
+import diPOLE_python3_reparam
 from pylab import *
 import numpy as np
 import cv2
 import os
 import time
+import tifffile
 
 def nm_to_px(coord_nm, pixel_size_nm, image_size_px, x_or_y_flag):
     if x_or_y_flag == 'x':
@@ -17,13 +18,13 @@ def mortensen_single_frame(image_path):
 
     # Load image - this should be an array of floats from 0-????
     # (let's just use mortensen's example data to set the max for now I guess)
-    image = cv2.imread(image_path, 0)
-
+    # image = cv2.imread(image_path, 0)
+    image = tifffile.imread(image_path)
     mortensen_example_data = np.loadtxt('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/mortensen/mortensen-example-data.txt')
     mort_min = np.min(mortensen_example_data)
     mort_max = np.max(mortensen_example_data)
     mort_range = mort_max - mort_min
-    image = (image.astype(np.float64) / 255) * mort_range + mort_min
+    # image = (image.astype(np.float64) / 255) * mort_range + mort_min
 
     # fig, ax = plt.subplots(figsize=(5, 5))
     # ax.imshow(image, extent=[-image_size_nm / 2, image_size_nm / 2, -image_size_nm / 2, image_size_nm / 2],
@@ -37,7 +38,7 @@ def mortensen_single_frame(image_path):
     start_blob = time.time()
 
     # Create instance of MLEwT
-    track = diPOLE_python3.MLEwT(peak_emission_wavelength,
+    track = diPOLE_python3_reparam.MLEwT(peak_emission_wavelength,
                                  pixel_size_nm,
                                  magnification,
                                  numerical_aperture,
@@ -78,10 +79,10 @@ magnification = 250.0 # Magnification of composite microscope
 pixel_size_nm = 51.2 # Pixel width (nm per px)
 
 # PSF parameters
-photon_number = 50000.0 # Number of photons in image
+photon_number = 1e6 # Number of photons in image
 background_level = 1.0 # Background level
-mu = 200. # Initial guess location I think (nm)
-nu = 200. # Initial guess location I think (nm)
+mu = -11. # Initial guess location I think (nm)
+nu = 11. # Initial guess location I think (nm)
 phi = 0. # inclination
 theta = 0. # azimuthal angle
 deltaz = 0. # Distance from design focal plane
@@ -92,7 +93,7 @@ sigma_noise = 2 #12.6
 Sfloor = 300.0
 gain = 1.0 / inverse_gain
 
-image_size_px = 29
+image_size_px = 19
 image_size_nm = image_size_px * pixel_size_nm
 patch_width_px = image_size_px # size of NxN pixel patch around blob centroid to consider
 
@@ -130,8 +131,8 @@ for i, frame_path in enumerate(frame_paths, 1):
     elapsed_time_frame = elapsed_time_frame/60
     print(f"Time: {elapsed_time_frame:.2f} minutes on this frame")
 
-x_true = [1.796704e+02]
-y_true = [2.026641e+02]
+x_true = [-1.485782e+01]
+y_true = [-2.518784e+01]
 theta_true = [0]
 phi_true = [0]
 
@@ -168,8 +169,8 @@ print([a - b for a, b in zip(phi_true, phi_ests)])
 #     file.write(f"az_err = [{', '.join(f'{az:.2f}' for az in angleAzimuth_errors)}]\n")
 #
 # show on image
-image_results = cv2.imread('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/mortensen/hinterer_sim/test_inc0.tif', 0)
-image_results = cv2.cvtColor(image_results, cv2.COLOR_GRAY2RGB)
+image_results = tifffile.imread('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/mortensen/hinterer_sim/sim_inc000_az000_run1.tif')
+# image_results = cv2.cvtColor(image_results, cv2.COLOR_GRAY2RGB)
 
 fig, ax = plt.subplots(figsize=(5, 5))
 ax.imshow(image_results, extent=[-image_size_nm / 2, image_size_nm / 2, -image_size_nm / 2, image_size_nm / 2],

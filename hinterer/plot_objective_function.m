@@ -16,11 +16,11 @@ addpath(genpath('../'));
 
 % Function to create the current PSF (same as `createFitPSF` method in the class)
 function currentPSF = createFitPSF(psfEstimate, params)
-    psfEstimate.position = Length([params(1:2), 0], 'nm');
+    psfEstimate.position = Length([params(1), params(2), 0], 'nm');
     psfEstimate.defocus = Length(params(3), 'nm');
     psfEstimate.dipole = Dipole(params(4), params(5));  % Use inclination
-    noiseEstimate = psfEstimate.backgroundNoise;
-    nPhotonEstimate = psfEstimate.nPhotons;%round(sum(sum(psfEstimate.image - noiseEstimate)));
+    noiseEstimate = 3;
+    nPhotonEstimate = 1e6;%round(sum(sum(psfEstimate.image - noiseEstimate)));
 
     % Simulate the PSF
     bfp = BackFocalPlane(psfEstimate);
@@ -58,12 +58,72 @@ function currentPSF = createFitPSF(psfEstimate, params)
 end
 
 
+% This for if checking reparameterised version
+% Function to create the current PSF (same as `createFitPSF` method in the class)
+function currentPSF = createFitPSF_reparam(psfEstimate, params)
+
+
+    psfEstimate.position = Length([params(1:2), 0], 'nm');
+    psfEstimate.defocus = Length(params(3), 'nm');
+
+    inclination = 0.5*asin(params(4));
+    azimuth = atan2(params(6), params(5));
+
+    % disp(lateralPositionAndDefocus(4))
+
+    inclination = mod(inclination, pi/2);
+    azimuth = mod(azimuth, 2*pi);
+
+    psfEstimate.dipole = Dipole(inclination, azimuth); % dave jan 2025 - adding angle optimiser
+
+    noiseEstimate = 3;
+    nPhotonEstimate = 1e6;%round(sum(sum(psfEstimate.image - noiseEstimate)));
+
+    % Simulate the PSF
+    bfp = BackFocalPlane(psfEstimate);
+    % bfp = BackFocalPlane_gaussian(psfEstimate); % use this if want just Gaussian
+    psfEstimate.backFocalPlane = bfp;
+
+    % Apply phase mask
+    psfEstimate.fieldBFP.x = psfEstimate.phaseMaskObj.apply(bfp.electricField.x);
+    psfEstimate.fieldBFP.y = psfEstimate.phaseMaskObj.apply(bfp.electricField.y);
+
+    % Apply attenuation mask
+    psfEstimate.fieldBFP.x = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.x);
+    psfEstimate.fieldBFP.y = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.y);
+
+    currentPsf = zeros(psfEstimate.nPixels,psfEstimate.nPixels); 
+
+    for k=1:size(psfEstimate.stageDrift.motion,1)
+        % Apply aberrations
+        aberrations = getAberrations(psfEstimate,k);
+        aberratedFieldBFP = applyAberrations(psfEstimate, aberrations);
+        
+        % Get image from BFP field
+        currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, aberratedFieldBFP)./size(psfEstimate.stageDrift.motion,1);
+    end
+
+    currentPsf = adjustExcitation(psfEstimate, currentPsf);
+    currentPsf = applyShotNoise(psfEstimate, currentPsf);
+    currentPsf = addBackgroundNoise(psfEstimate, currentPsf);
+
+    totalIntensity = sum(currentPsf,'all');
+    currentPsf = currentPsf ./ totalIntensity * nPhotonEstimate + noiseEstimate;
+    currentFitPSF = currentPsf ./ norm(currentPsf);
+
+    currentPSF = currentFitPSF;
+end
+
+
+
+
 % Input params
-frames_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_objective_testing/new_sims_highN/';
+% frames_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_objective_testing/sims/blank/';
+frames_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/background_images/highN/';
 
 % Locate all the images and settings files in the dir
 files = dir(frames_dir);
-valid_extensions_image = {'.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif'};
+valid_extensions_image = {'.tif'};
 valid_extensions_settings = {'.m'};
 frame_paths = {};
 settings_paths = {};
@@ -83,123 +143,150 @@ end
 % Loop over each image path and process
 
 % Loop over each frame
-for frame_index = 1:1%1:length(frame_paths)%randperm(length(frame_paths), 50)
-
-    tic; % timing each frame
+for frame_index = 4:4%1:length(frame_paths)%randperm(length(frame_paths), 50)
 
     fprintf('----------\n');
     fprintf('FRAME %d/%d\n', frame_index, length(frame_paths));
     frame_path = frame_paths{frame_index};
     settings_path = settings_paths{frame_index};
-
+    
     % Read in ground truth data
     % run(settings_path);
     evalc('run(settings_path)');
-
+    
     par.pixelSensitivityMask = PixelSensitivity.uniform(9);
     par.pixelSize = Length(pixel_size_nm,'nm');
     par.objectiveFocalLength = Length(objectiveFocalLength,'mu');
     par.nPixels = image_size_px;
     par.wavelength = Length(wavelength,'nm');
-
+    
     % Load frame
     psf_image = imread(frame_path);
-
+    
     % % Convert to greyscale if not
     % if size(psf_image, 3) == 3
     %     psf_image = rgb2gray(psf_image);
     % end
-
+    
     psf_image = double(psf_image); % Convert to double for calculations
     % psf_image = max(min(psf_image, 255), 0); % Clip values to [0, 255]
     % psf_image = uint8(psf_image); % Convert back to uint8
     % psf_image = double(psf_image);
     % psf_image = 10 + ((psf_image - min(psf_image(:))) / (max(psf_image(:)) - min(psf_image(:)))); % need to do this to normalise it to 0,1
     psf_image = psf_image ./ norm(psf_image);
-
+    
+    % % Clip values just for display
+    % display_image = (psf_image - min(psf_image(:))) / (max(psf_image(:)) - min(psf_image(:)));
+    % imshow(display_image)
+    
+    
+    
+    % % Plot XY, obj
+    % 
+    % for inclination = [0*pi/180, 22.5*pi/180, 45*pi/180, 67.5*pi/180, 90*pi/180]
+    % 
+    %     % Generate throwaway PSF object, later replace the image with our masked image
+    %     par.position = Length([0, 0, 0], 'nm');
+    %     par.dipole = Dipole(inclination, 0);
+    %     psfInit = PSF(par);
+    %     psfInit.image = psf_image;
+    % 
+    %     % Plot XY + obj func
+    %     % Plot grid
+    %     extent = 50;
+    %     xVals = linspace(-50, 50, 30);
+    %     yVals = linspace(-50, 50, 30);
+    % 
+    %     % Fix defocus, inc, az
+    %     defocus = 0;
+    %     azimuth = 0;
+    % 
+    %     costMatrix = zeros(length(xVals), length(yVals));
+    % 
+    %     tic;
+    % 
+    %     for i = 1:length(xVals)
+    %         for j = 1:length(yVals)
+    % 
+    %             x = xVals(i);
+    %             y = yVals(j);
+    % 
+    %             currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, azimuth]); 
+    % 
+    %             costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
+    %             costMatrix(i, j) = costValue;  % Negative log-likelihood
+    %         end
+    %     end
+    % 
+    %     figure;
+    %     surf(xVals, yVals, costMatrix, 'EdgeColor', 'none');
+    %     view(3);%0, 90);
+    %     colorbar;
+    %     colormap jet;
+    %     xlim([min(xVals) max(xVals)]);
+    %     ylim([min(yVals) max(yVals)]);
+    %     % zlim([0 300]);
+    %     xlabel('x, nm)');
+    %     ylabel('y, nm)');
+    %     zlabel('obj func');
+    %     title(sprintf('obj func, θ = %.2f°)', inclination*180/pi));
+    %     hold off;
+    % 
+    %     % Find minimum value in the costMatrix and its corresponding x and y
+    %     [minCostValue, linearIndex] = min(costMatrix(:));
+    %     [row, col] = ind2sub(size(costMatrix), linearIndex);
+    % 
+    %     % Get the corresponding x and y values
+    %     minX = xVals(row);
+    %     minY = yVals(col);
+    % 
+    %     % Display the results
+    %     disp(['(', num2str(minX), ' , ', num2str(minY), ')']);
+    % 
+    %     % % Print ground truth obj func value
+    %     % ground_truth_params = [positionX_nm_array, positionY_nm_array, 0, angleInclination_array, angleAzimuth_array];
+    %     % ground_truth_PSF = createFitPSF(psfInit, ground_truth_params); 
+    %     % objective_function_true = -sum(psf_image .* log(ground_truth_PSF) - ground_truth_PSF - log(gamma(psf_image + 1)), 'all');
+    %     % disp(objective_function_true)
+    % 
+    %     % % Clip values just for display
+    %     % display_image = (currentPSF - min(currentPSF(:))) / (max(currentPSF(:)) - min(currentPSF(:)));
+    %     % imshow(display_image)
+    % 
+    %     elapsed_time = toc;
+    %     fprintf('    Time to plot: %.2f seconds\n', elapsed_time);
+    % 
+    % 
+    % end % end loop over frames
+    
+    
+    
     % Generate throwaway PSF object, later replace the image with our masked image
-    par.position = Length([0 0 0], 'nm');
+    par.position = Length([0, 0, 0], 'nm');
+    par.dipole = Dipole(0, 0);
     psfInit = PSF(par);
     psfInit.image = psf_image;
     
-
-
-    % Example x and y values (fixing them to a specific point)
-    x = positionX_nm_array;  % Example value
-    y = positionY_nm_array;  % Example value
-    defocus = 0;
-
-    % Azimuth values to vary
-    azVals = linspace(0, 2*pi, 50);  % Azimuth values, from 0 to 2*pi
-    
-    % Inclination values (in radians)
-    inclinations = [0, 22.5*pi/180, 45*pi/180, 67.5*pi/180, 90*pi/180];
-    
-    % Create a new figure
-    figure;
-    
-    % Loop over each inclination and calculate the corresponding cost function
-    hold on;  % Keep the same plot for multiple curves
-    
-    for i = 1:length(inclinations)
-        inclination = inclinations(i);
-        
-        % Initialize cost function values for this inclination
-        costValues = zeros(length(azVals), 1);
-        
-        % Calculate the cost function for each azimuth for the current inclination
-        for j = 1:length(azVals)
-            az = azVals(j);
-        
-            % Calculate the PSF and cost function
-            currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, az]);
-        
-            % Calculate the cost value (negative log-likelihood)
-            costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
-            costValues(j) = costValue;  % Store the cost value
-        end
-        
-        % Plot the cost function for this inclination
-        plot(azVals*180/pi, costValues, 'LineWidth', 2, 'DisplayName', sprintf('θ = %.2f°', inclination * 180 / pi));
-    end
-    
-    % Customize plot
-    xlabel('Azimuth, deg');
-    ylabel('Objective function');
-    title('Objective function vs Azimuth for Different Inclinations');
-    legend show;  % Display legend
-    grid on;
-    hold off;  % End holding the plot for multiple curves
-
-
-
-    
-    % % Plot XY + obj func
+    % % Plot Xtheta, obj
+    % 
     % % Plot grid
-    % xVals = linspace(positionX_nm_array-50, positionX_nm_array+50, 50);
-    % yVals = linspace(positionY_nm_array-50, positionY_nm_array+50, 50);
+    % extent = 50;
+    % xVals = linspace(-20, 20, 320);
+    % % incVals = linspace(0, pi/2, 90);
+    % incVals = linspace(50*pi/180, 70*pi/180, 320);
     % 
     % % Fix defocus, inc, az
     % defocus = 0;
-    % inclination = angleInclination_array;
-    % azimuth = angleAzimuth_array;
+    % y = 0;
+    % azimuth = 0;
     % 
-    % % Initialize cost function values
-    % costMatrix = zeros(length(xVals), length(yVals));
+    % costMatrix = zeros(length(xVals), length(incVals));
     % 
-    % % Compute cost function for each inclination value and place on subplot
-    % 
-    % tic;
-    % 
-    % % Initialize cost function values
-    % costMatrix = zeros(length(xVals), length(yVals));
-    % 
-    % % Compute the cost function over x and y coordinates
     % for i = 1:length(xVals)
-    %     for j = 1:length(yVals)
-    %         % Current (x, y) position
+    %     for j = 1:length(incVals)
+    % 
     %         x = xVals(i);
-    %         y = yVals(j);
+    %         inclination = incVals(j);
     % 
     %         currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, azimuth]); 
     % 
@@ -208,220 +295,465 @@ for frame_index = 1:1%1:length(frame_paths)%randperm(length(frame_paths), 50)
     %     end
     % end
     % 
-    % % Create a 3D surface plot
     % figure;
-    % surf(xVals, yVals, costMatrix, 'EdgeColor', 'none');
-    % view(3);
+    % surf(xVals, incVals*180/pi, costMatrix', 'EdgeColor', 'none');
+    % view(3);%0, 90);
     % colorbar;
     % colormap jet;
+    % xlim([min(xVals) max(xVals)]);
+    % ylim([min(incVals*180/pi) max(incVals*180/pi)]);
+    % % zlim([0 300]);
     % xlabel('x, nm)');
-    % ylabel('y, nm)');
+    % ylabel('inc, deg)');
     % zlabel('obj func');
-    % title(sprintf('obj func, θ = %.2f°)', inclination*180/pi, azimuth*180/pi));
+    % title('obj func over x and θ)');
     % hold off;
     % 
+    % % Find minimum value in the costMatrix and its corresponding x and y
+    % [minCostValue, linearIndex] = min(costMatrix(:));
+    % [row, col] = ind2sub(size(costMatrix), linearIndex);
     % 
+    % % Get the corresponding x and y values
+    % minX = xVals(row);
+    % minY = incVals(col);
     % 
-    % % Plot Xϕ + obj func
+    % % Display the results
+    % disp(['(', num2str(minX), ' , ', num2str(minY*180/pi), ')']);
+    
+    
+    
+    % % Plot Ytheta, obj
+    % 
     % % Plot grid
-    % xVals = linspace(positionX_nm_array-50, positionX_nm_array+50, 50);
-    % azVals = linspace(0, 2*pi, 50);  % Round to ensure it's a whole number of points
+    % extent = 50;
+    % yVals = linspace(-20, 20, 40);
+    % incVals = linspace(50*pi/180, 70*pi/180, 20);
     % 
     % % Fix defocus, inc, az
     % defocus = 0;
-    % inclination = angleInclination_array;
-    % y = positionY_nm_array;
+    % x = 0;
+    % azimuth = 0;
     % 
-    % % Initialize cost function values
-    % costMatrix = zeros(length(xVals), length(azVals));
+    % costMatrix = zeros(length(yVals), length(incVals));
     % 
-    % % Compute cost function for each inclination value and place on subplot
-    % 
-    % tic;
-    % 
-    % % Initialize cost function values
-    % costMatrix = zeros(length(xVals), length(azVals));
-    % 
-    % % Compute the cost function over x and y coordinates
-    % for i = 1:length(xVals)
-    %     for j = 1:length(azVals)
-    %         % Current (x, y) position
-    %         x = xVals(i);
-    %         az = azVals(j);
-    % 
-    %         currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, az]); 
-    % 
-    %         costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
-    %         costMatrix(i, j) = costValue;  % Negative log-likelihood
-    %     end
-    % end
-    % 
-    % % Create a 3D surface plot
-    % figure;
-    % surf(xVals, azVals*180/pi, costMatrix, 'EdgeColor', 'none');
-    % view(3);
-    % colorbar;
-    % colormap jet;
-    % xlabel('x, nm)');
-    % ylabel('az, deg)');
-    % zlabel('obj func');
-    % title(sprintf('obj func, θ = %.2f°)', inclination*180/pi, azimuth*180/pi));
-    % hold off;
-    % 
-    % 
-    % 
-    % 
-    % % Plot Yϕ + obj func
-    % % Plot grid
-    % yVals = linspace(positionY_nm_array-50, positionY_nm_array+50, 50);
-    % azVals = linspace(0, 2*pi, 50);  % Round to ensure it's a whole number of points
-    % 
-    % % Fix defocus, inc, az
-    % defocus = 0;
-    % inclination = angleInclination_array;
-    % x = positionX_nm_array;
-    % 
-    % % Initialize cost function values
-    % costMatrix = zeros(length(yVals), length(azVals));
-    % 
-    % % Compute cost function for each inclination value and place on subplot
-    % 
-    % tic;
-    % 
-    % % Initialize cost function values
-    % costMatrix = zeros(length(yVals), length(azVals));
-    % 
-    % % Compute the cost function over x and y coordinates
     % for i = 1:length(yVals)
-    %     for j = 1:length(azVals)
-    %         % Current (x, y) position
-    %         y = yVals(i);
-    %         az = azVals(j);
+    %     for j = 1:length(incVals)
     % 
-    %         currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, az]); 
+    %         y = yVals(i);
+    %         inclination = incVals(j);
+    % 
+    %         currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, azimuth]); 
     % 
     %         costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
     %         costMatrix(i, j) = costValue;  % Negative log-likelihood
     %     end
     % end
     % 
-    % % Create a 3D surface plot
     % figure;
-    % surf(yVals, azVals*180/pi, costMatrix, 'EdgeColor', 'none');
-    % view(3);
+    % surf(yVals, incVals*180/pi, costMatrix', 'EdgeColor', 'none');
+    % view(3);%0, 90);
     % colorbar;
     % colormap jet;
+    % xlim([min(yVals) max(yVals)]);
+    % ylim([min(incVals*180/pi) max(incVals*180/pi)]);
+    % % zlim([0 300]);
     % xlabel('y, nm)');
-    % ylabel('az, deg)');
+    % ylabel('inc, deg)');
     % zlabel('obj func');
-    % title(sprintf('obj func, θ = %.2f°)', inclination*180/pi, azimuth*180/pi));
+    % title('obj func over y and θ)');
     % hold off;
-
-
-
-
-
-
-    % % Plot Rϕ + obj func
-    % % Define radial and azimuthal values for the grid
-    % rVals = linspace(0, 100, 10);  % Radial distance
-    % azVals = linspace(0, 2*pi, 10);  % Azimuthal angle
     % 
-    % % Create meshgrid for r and az
-    % [R, AZ] = meshgrid(rVals, azVals);
+    % % Find minimum value in the costMatrix and its corresponding x and y
+    % [minCostValue, linearIndex] = min(costMatrix(:));
+    % [row, col] = ind2sub(size(costMatrix), linearIndex);
     % 
-    % % Convert from polar to Cartesian coordinates for x, y
-    % X = R .* cos(AZ);
-    % Y = R .* sin(AZ);
+    % % Get the corresponding x and y values
+    % minX = yVals(row);
+    % minY = incVals(col);
     % 
-    % % Fix defocus, inclination, and azimuth for cost function
-    % defocus = 0;
-    % inclination = angleInclination_array;
+    % % Display the results
+    % disp(['(', num2str(minX), ' , ', num2str(minY*180/pi), ')']);
+    
+    
+    
+    
+    % % Plot theta/phi, obj
     % 
-    % % Initialize cost function matrix
-    % costMatrix = zeros(length(rVals), length(azVals));
-    % 
-    % % Compute the cost function over the polar grid
-    % tic;
-    % 
-    % for i = 1:length(rVals)
-    %     for j = 1:length(azVals)
-    %         % Current (x, y) position
-    %         x = X(i, j);
-    %         y = Y(i, j);
-    %         az = azVals(j);
-    % 
-    %         % Calculate the PSF and cost function
-    %         currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, az]);
-    % 
-    %         % Calculate the cost value (negative log-likelihood)
-    %         costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
-    %         costMatrix(i, j) = costValue;  % Store the cost value
-    %     end
-    % end
-    % 
-    % % Create a 3D surface plot
-    % figure;
-    % surf(R, AZ*180/pi, costMatrix, 'EdgeColor', 'none');
-    % view(3);
-    % colorbar;
-    % colormap jet;
-    % xlabel('r, nm');
-    % ylabel('Azimuth, deg');
-    % zlabel('Objective function');
-    % title(sprintf('Objective function, Inclination = %.2f°', inclination * 180 / pi));
-    % 
-    % hold off;
-
-
-    % % Plot XYϕ + obj func contour
     % % Plot grid
-    % xVals = linspace(positionX_nm_array-50, positionX_nm_array+50, 10);
-    % yVals = linspace(positionY_nm_array-50, positionY_nm_array+50, 10);
-    % azVals = linspace(0, 2*pi, 10);  % Round to ensure it's a whole number of points
+    % incVals = linspace(0, pi/2, 80);
+    % azVals = linspace(0, 2*pi, 80);
     % 
     % % Fix defocus, inc, az
     % defocus = 0;
-    % inclination = angleInclination_array;
-    % azimuth = angleAzimuth_array;
+    % x = 0;
+    % y = 0;
     % 
-    % [xGrid, yGrid, azGrid] = meshgrid(xVals, yVals, azVals);
-    % costVolume = zeros(size(xGrid));
+    % costMatrix = zeros(length(incVals), length(azVals));
     % 
-    % for i = 1:numel(xGrid)
-    %     x = xGrid(i);
-    %     y = yGrid(i);
-    %     azimuth = azGrid(i);
-    %     currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, azimuth]); 
-    %     costVolume(i) = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
+    % for i = 1:length(incVals)
+    %     for j = 1:length(azVals)
+    % 
+    %         inclination = incVals(i);
+    %         azimuth = azVals(j);
+    % 
+    %         currentPSF = createFitPSF(psfInit, [x, y, defocus, inclination, azimuth]); 
+    % 
+    %         costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
+    %         costMatrix(i, j) = costValue;  % Negative log-likelihood
+    %     end
+    % end
+    % 
+    % % figure;
+    % % surf(incVals*180/pi, azVals*180/pi, costMatrix', 'EdgeColor', 'none');
+    % % view(3);%0, 90);
+    % % colorbar;
+    % % colormap jet;
+    % % xlim([min(incVals*180/pi) max(incVals*180/pi)]);
+    % % ylim([min(azVals*180/pi) max(azVals*180/pi)]);
+    % % % zlim([0 300]);
+    % % xlabel('inc, deg)');
+    % % ylabel('az, deg)');
+    % % zlabel('obj func');
+    % % title('obj func over y and θ)');
+    % % hold off;
+    % 
+    % % Find minimum value in the costMatrix and its corresponding x and y
+    % [minCostValue, linearIndex] = min(costMatrix(:));
+    % [row, col] = ind2sub(size(costMatrix), linearIndex);
+    % 
+    % % Get the corresponding x and y values
+    % minX = incVals(row);
+    % minY = azVals(col);
+    % 
+    % % Display the results
+    % disp(['(', num2str(minX), ' , ', num2str(minY*180/pi), ')']);
+    % 
+    % 
+    % 
+    % 
+    % 
+    % % Number of patches in the azimuth direction
+    % numPatches = 3;  % You can change this to stack more patches
+    % 
+    % figure;
+    % hold on;
+    % 
+    % for patchIndex = 0:numPatches-1
+    %     % Shift the azimuth values for each patch
+    %     shiftedAzVals = azVals + patchIndex * 2*pi;  
+    % 
+    %     % Mirror the inclination values
+    %     mirroredIncVals = [incVals, 2*(pi/2) - fliplr(incVals)];
+    % 
+    %     % Mirror the cost matrix vertically
+    %     mirroredCostMatrix = [costMatrix; flipud(costMatrix)];
+    % 
+    %     % Plot each shifted and mirrored patch
+    %     surf(mirroredIncVals * 180/pi, shiftedAzVals * 180/pi, mirroredCostMatrix', 'EdgeColor', 'none');
+    % end
+    % 
+    % view(3);
+    % colorbar;
+    % colormap jet;
+    % xlim([min(incVals*180/pi), 2*max(incVals*180/pi)]);
+    % ylim([min(azVals*180/pi), max(azVals*180/pi) + (numPatches-1) * 360]); % Expand range for stacked patches
+    % xlabel('Inclination (deg)');
+    % ylabel('Azimuth (deg)');
+    % zlabel('Objective Function');
+    % title('Stacked & Mirrored Cost Function');
+    % hold off;
+
+
+
+
+
+    % But I've now reparameterised to optimise over
+    % sin(phi), cos(phi), and sin(2theta)
+    % so we need to see how they look really
+
+
+    % Plot sin(phi)/sin(2*theta), obj
+
+    sinazVals = linspace(-1, 1, 20);
+    sinincVals = linspace(-1, 1, 20);
+
+    % Fix defocus, inc, az
+    x = 0;
+    y = 0;
+    defocus = 0;
+    cosAz = 1;
+
+    costMatrix = zeros(length(sinazVals), length(sinincVals));
+
+    for i = 1:length(sinazVals)
+        for j = 1:length(sinincVals)
+
+            sinAz = sinazVals(i);
+            sinInc = sinincVals(j);
+
+            currentPSF = createFitPSF_reparam(psfInit, [x, y, defocus, sinAz, cosAz, sinInc]); 
+
+            costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
+            costMatrix(i, j) = costValue;  % Negative log-likelihood
+        end
+    end
+
+    figure;
+    surf(sinazVals, sinincVals, costMatrix', 'EdgeColor', 'none');
+    view(3);%0, 90);
+    colorbar;
+    colormap jet;
+    xlim([min(sinazVals) max(sinincVals)]);
+    ylim([min(sinincVals) max(sinincVals)]);
+    % zlim([0 300]);
+    xlabel('sin(az)');
+    ylabel('sin(inc)');
+    zlabel('obj func');
+    title('obj func over sin(az) and sin(inc))');
+    hold off;
+
+    % Find minimum value in the costMatrix and its corresponding x and y
+    [minCostValue, linearIndex] = min(costMatrix(:));
+    [row, col] = ind2sub(size(costMatrix), linearIndex);
+
+    % Get the corresponding x and y values
+    minX = sinazVals(row);
+    minY = sinincVals(col);
+
+    % Display the results
+    disp(['(', num2str((asin(minX))*180/pi), ' , ', num2str((0.5*asin(minY))*180/pi), ')']);
+
+
+
+
+
+
+
+
+
+    % % Plot cos(phi)/sin(2*theta), obj
+    % 
+    % cosazVals = linspace(-1, 1, 20);
+    % sinincVals = linspace(-1, 1, 20);
+    % 
+    % % Fix defocus, inc, az
+    % x = 0;
+    % y = 0;
+    % defocus = 0;
+    % sinAz = 1;
+    % 
+    % costMatrix = zeros(length(cosazVals), length(sinincVals));
+    % 
+    % for i = 1:length(cosazVals)
+    %     for j = 1:length(sinincVals)
+    % 
+    %         cosAz = cosazVals(i);
+    %         sinInc = sinincVals(j);
+    % 
+    %         currentPSF = createFitPSF_reparam(psfInit, [x, y, defocus, sinAz, cosAz, sinInc]); 
+    % 
+    %         costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
+    %         costMatrix(i, j) = costValue;  % Negative log-likelihood
+    %     end
     % end
     % 
     % figure;
-    % slice(xGrid, yGrid, azGrid*180/pi, costVolume, [], [], linspace(0, 360, 6));
-    % shading interp;
+    % surf(cosazVals, sinincVals, costMatrix', 'EdgeColor', 'none');
+    % view(3);%0, 90);
     % colorbar;
-    % xlabel('x (nm)');
-    % ylabel('y (nm)');
-    % zlabel('Azimuth (°)');
-    % title('Cost Function Slices in 3D');
     % colormap jet;
+    % xlim([min(cosazVals) max(sinincVals)]);
+    % ylim([min(cosazVals) max(sinincVals)]);
+    % % zlim([0 300]);
+    % xlabel('cos(az)');
+    % ylabel('sin(inc)');
+    % zlabel('obj func');
+    % title('obj func over cos(az) and sin(inc))');
+    % hold off;
+    % 
+    % % Find minimum value in the costMatrix and its corresponding x and y
+    % [minCostValue, linearIndex] = min(costMatrix(:));
+    % [row, col] = ind2sub(size(costMatrix), linearIndex);
+    % 
+    % % Get the corresponding x and y values
+    % minX = cosazVals(row);
+    % minY = sinincVals(col);
+    % 
+    % % Display the results
+    % disp(['(', num2str((acos(minX))*180/pi), ' , ', num2str((0.5*asin(minY))*180/pi), ')']);
+    % 
+    % 
+    % 
+    % 
+    % 
+    % 
+    % 
+    % % Plot cos(phi)/sin(2*theta), obj
+    % 
+    % cosazVals = linspace(-1, 1, 20);
+    % sinazVals = linspace(-1, 1, 20);
+    % 
+    % % Fix defocus, inc, az
+    % x = 0;
+    % y = 0;
+    % defocus = 0;
+    % sinInc = 1;
+    % 
+    % costMatrix = zeros(length(cosazVals), length(sinazVals));
+    % 
+    % for i = 1:length(cosazVals)
+    %     for j = 1:length(sinazVals)
+    % 
+    %         cosAz = cosazVals(i);
+    %         sinAz = sinazVals(j);
+    % 
+    %         currentPSF = createFitPSF_reparam(psfInit, [x, y, defocus, sinAz, cosAz, sinInc]); 
+    % 
+    %         costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
+    %         costMatrix(i, j) = costValue;  % Negative log-likelihood
+    %     end
+    % end
+    % 
+    % figure;
+    % surf(cosazVals, sinazVals, costMatrix', 'EdgeColor', 'none');
+    % view(3);%0, 90);
+    % colorbar;
+    % colormap jet;
+    % xlim([min(cosazVals) max(sinazVals)]);
+    % ylim([min(cosazVals) max(sinincVals)]);
+    % % zlim([0 300]);
+    % xlabel('cos(az)');
+    % ylabel('sin(az)');
+    % zlabel('obj func');
+    % title('obj func over cos(az) and sin(inc))');
+    % hold off;
+    % 
+    % % Find minimum value in the costMatrix and its corresponding x and y
+    % [minCostValue, linearIndex] = min(costMatrix(:));
+    % [row, col] = ind2sub(size(costMatrix), linearIndex);
+    % 
+    % % Get the corresponding x and y values
+    % minX = cosazVals(row);
+    % minY = sinazVals(col);
+    % 
+    % % Display the results
+    % disp(['(', num2str((acos(minX))*180/pi), ' , ', num2str((0.5*asin(minY))*180/pi), ')']);
+
+
+
+
+    % 
+    % 
+    % % Plot az/sin(2*theta), obj
+    % 
+    % azVals = linspace(0, 2*pi, 20);
+    % sinincVals = linspace(-1, 1, 20);
+    % 
+    % % Fix defocus, inc, az
+    % x = 0;
+    % y = 0;
+    % defocus = 0;
+    % sinInc = 1;
+    % 
+    % costMatrix = zeros(length(azVals), length(sinincVals));
+    % 
+    % for i = 1:length(azVals)
+    %     for j = 1:length(sinincVals)
+    % 
+    %         azimuth = azVals(i);
+    %         sinInc = sinincVals(j);
+    % 
+    %         currentPSF = createFitPSF_reparam(psfInit, [x, y, defocus, sinInc, azimuth]); 
+    % 
+    %         costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
+    %         costMatrix(i, j) = costValue;  % Negative log-likelihood
+    %     end
+    % end
+    % 
+    % figure;
+    % surf(azVals*180/pi, sinincVals, costMatrix', 'EdgeColor', 'none');
+    % view(3);%0, 90);
+    % colorbar;
+    % colormap jet;
+    % xlim([min(azVals*180/pi) max(azVals*180/pi)]);
+    % ylim([min(sinincVals) max(sinincVals)]);
+    % % zlim([0 300]);
+    % xlabel('az');
+    % ylabel('sin(az)');
+    % zlabel('obj func');
+    % title('obj func over az and sin(inc))');
+    % hold off;
+    % 
+    % % Find minimum value in the costMatrix and its corresponding x and y
+    % [minCostValue, linearIndex] = min(costMatrix(:));
+    % [row, col] = ind2sub(size(costMatrix), linearIndex);
+    % 
+    % % Get the corresponding x and y values
+    % minX = azVals(row);
+    % minY = sinincVals(col);
+    % 
+    % % Display the results
+    % disp(['(', num2str(minX*180/pi), ' , ', num2str((0.5*asin(minY))*180/pi), ')']);
+    % 
+
+
+
+
+    % 
+    % % Plot az/sin(2*theta), obj
+    % 
+    % incVals = linspace(0, 2*pi, 20);
+    % sinazVals = linspace(-1, 1, 20);
+    % 
+    % % Fix defocus, inc, az
+    % x = 0;
+    % y = 0;
+    % defocus = 0;
+    % cosAz = 1;
+    % 
+    % costMatrix = zeros(length(incVals), length(sinazVals));
+    % 
+    % for i = 1:length(incVals)
+    %     for j = 1:length(sinazVals)
+    % 
+    %         inclination = incVals(i);
+    %         sinAz = sinazVals(j);
+    % 
+    %         currentPSF = createFitPSF_reparam(psfInit, [x, y, defocus, inclination, cosAz, sinAz]); 
+    % 
+    %         costValue = -sum(psf_image .* log(currentPSF) - currentPSF - log(gamma(psf_image + 1)), 'all');
+    %         costMatrix(i, j) = costValue;  % Negative log-likelihood
+    %     end
+    % end
+    % 
+    % figure;
+    % surf(incVals*180/pi, sinazVals, costMatrix', 'EdgeColor', 'none');
+    % view(3);%0, 90);
+    % colorbar;
+    % colormap jet;
+    % xlim([min(incVals*180/pi) max(incVals*180/pi)]);
+    % ylim([min(sinazVals) max(sinazVals)]);
+    % % zlim([0 300]);
+    % xlabel('inc');
+    % ylabel('sin(az)');
+    % zlabel('obj func');
+    % title('obj func over az and sin(az))');
+    % hold off;
+    % 
+    % % Find minimum value in the costMatrix and its corresponding x and y
+    % [minCostValue, linearIndex] = min(costMatrix(:));
+    % [row, col] = ind2sub(size(costMatrix), linearIndex);
+    % 
+    % % Get the corresponding x and y values
+    % minX = incVals(row);
+    % minY = sinazVals(col);
+    % 
+    % % Display the results
+    % disp(['(', num2str(minX*180/pi), ' , ', num2str((asin(minY))*180/pi), ')']);
 
 
 
 
 
-    % % Print ground truth obj func value
-    % ground_truth_params = [positionX_nm_array, positionY_nm_array, 0, angleInclination_array, angleAzimuth_array];
-    % ground_truth_PSF = createFitPSF(psfInit, ground_truth_params); 
-    % objective_function_true = -sum(psf_image .* log(ground_truth_PSF) - ground_truth_PSF - log(gamma(psf_image + 1)), 'all');
-    % disp(objective_function_true)
 
-    % % Clip values just for display
-    % display_image = (currentPSF - min(currentPSF(:))) / (max(currentPSF(:)) - min(currentPSF(:)));
-    % imshow(display_image)
-
-    elapsed_time = toc;
-    fprintf('    Time to plot: %.2f seconds\n', elapsed_time);
-
-
-end % end loop over frames
+end

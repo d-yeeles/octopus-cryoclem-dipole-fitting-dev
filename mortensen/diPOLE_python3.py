@@ -1602,87 +1602,38 @@ class MLEwT:
         # Extract pixel array around initial pixel
         counts=counts[int(ypix-deltapix):int(ypix+deltapix),int(xpix-deltapix):int(xpix+deltapix)]
 
-        # # Transformation of initial values
-        # pinit=zeros(7)
-        # pinit[0:2]=self.initvals[0:2] # x, y
-        # pinit[2]=sqrt(self.initvals[2]) # b
-        # pinit[3]=sqrt(self.initvals[3]) # N
-        # pinit[4]=self.initvals[4] # phi
-        # pinit[5]=self.initvals[5] # theta
-        # pinit[6]=self.initvals[6] # dz
-
-        # dave feb 2025 - fixing values
         # Transformation of initial values
-        pinit=zeros(4)
+        pinit=zeros(7)
         pinit[0:2]=self.initvals[0:2] # x, y
-        pinit[2]=self.initvals[2] # phi
-        pinit[3]=self.initvals[3] # theta
+        pinit[2]=sqrt(self.initvals[2]) # b
+        pinit[3]=sqrt(self.initvals[3]) # N
+        pinit[4]=self.initvals[4] # phi
+        pinit[5]=self.initvals[5] # theta
+        pinit[6]=self.initvals[6] # dz
 
         # Create instance of LogLikelihood object
         ll=LogLikelihood(counts,self.a,self.wl,self.NA,self.n,self.n0,self.M,pinit,\
                          self.Sfloor,self.alpha,self.sigma)
 
-        # # Perform maximization of the log-likelihood using Powell's method
-        # start_powell = time.time()
-        # res=fmin_powell(ll.Value,pinit,ftol=0.000000001,maxiter=5,maxfun=1000)
-        # end_powell = time.time()
-        # elapsed_time_powell = end_powell - start_powell
-        # print(f"Time: {elapsed_time_powell:.4f} seconds to maximization log-likelihood")
+        # Perform maximization of the log-likelihood using Powell's method
+        start_powell = time.time()
+        res=fmin_powell(ll.Value,pinit,ftol=0.000000001,maxiter=5,maxfun=1000)
+        end_powell = time.time()
+        elapsed_time_powell = end_powell - start_powell
+        print(f"Time: {elapsed_time_powell:.4f} seconds to maximization log-likelihood")
 
-        # dave feb 2025 - try particle swarm instead
-        # let's fix photon number and background noise
-        # (x,y,background?,Nphotons?,phi,theta,dz)
+        est=res[0]
+        warnflag=res[5]
 
-        lb = zeros(4, dtype=np.float64)
-        ub = zeros(4, dtype=np.float64)
-
-        lb[0] = pinit[0] - 100
-        lb[1] = pinit[1] - 100
-        # lb[2] = pinit[2] - 0.5
-        # lb[3] = pinit[3] - 50
-        lb[2] = pinit[2] - 0.1
-        lb[3] = pinit[3] - 0.1
-        # lb[6] = pinit[6] - 1
-
-        ub[0] = pinit[0] + 100
-        ub[1] = pinit[1] + 100
-        # ub[2] = pinit[2] + 0.5
-        # ub[3] = pinit[3] + 50
-        ub[2] = pinit[2] + 0.1
-        ub[3] = pinit[3] + 0.1
-        # ub[6] = pinit[6] + 1
-        # # define bounds based on pinit
-        # scale = 0.5  # 1% of each pinit value
-        # min_step = 1e-6  # Minimum allowable step size
-        # lb = np.zeros_like(pinit)
-        # ub = np.zeros_like(pinit)
-        # for i, p in enumerate(pinit):
-        #     step = max(scale * np.abs(p), min_step)
-        #     lb[i] = p - step
-        #     ub[i] = p + step
-        #     # Ensure lb is always less than ub
-        #     if lb[i] >= ub[i]:
-        #         lb[i] = p - min_step
-        #         ub[i] = p + min_step
-
-        start_PS = time.time()
-        res, _ = pso(ll.Value, lb, ub, swarmsize=20, maxiter=20, minfunc=1e-3, minstep=0.01, debug=True)
-        end_PS = time.time()
-        elapsed_time_PS = end_PS - start_PS
-        print(f"Time: {elapsed_time_PS:.4f} seconds to maximization log-likelihood")
-
-        est=res#[0] # dave feb 2025
-        # warnflag=res[5]
-
-        # L=ll.Value(est) # dave feb 2025
+        L=ll.Value(est)
 
         # Store position estimates relative to initial pixel
         self.mux=est[0]
         self.muy=est[1]
 
-        # # Convert estimates
-        # est[2]=est[2]**2
-        # est[3]=est[3]**2
+        # Convert estimates
+        est[2]=est[2]**2
+        est[3]=est[3]**2
 
         # Calculate covariance matrix
         asegment=self.a

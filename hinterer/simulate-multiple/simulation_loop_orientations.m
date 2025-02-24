@@ -12,20 +12,20 @@ addpath(genpath('../'));
 %% Simulate
 %% ----------
 
-inclinations = 0:22.5*pi/180:pi/2;
-azimuths = 0:0;%0:4*pi/180:2*pi;
-runs = 1:1;
+inclinations = 0:22.5*(pi/180):pi/2;%0:22.5*pi/180:pi/2;
+azimuths = 0:1*(pi/180):2*pi-1*(pi/180);%0:4*pi/180:2*pi;
+runs = 1:5;
 
 % Global params - these will be the same whether sim or fit
 
 number_of_spots = 1;
 scalefactor = 1;
-padding = 0.2; % for avoiding edges
+padding = 0.15; % for avoiding edges
 inner_bound = padding;
 outer_bound = 1 - 2*padding;
-pixel_size_nm = 51.2/scalefactor;
-image_size_nm = sqrt(number_of_spots)*1500;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
-image_size_px = roundToOdd(image_size_nm/pixel_size_nm);%roundToOdd(201);%101*scalefactor); % must be odd
+pixel_size_nm = 52/scalefactor;
+image_size_nm = sqrt(number_of_spots)*1000;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
+image_size_px = roundToOdd(image_size_nm/pixel_size_nm);%rous   ndToOdd(201);%101*scalefactor); % must be odd
 
 % Attocube params
 wavelength = 500;
@@ -38,8 +38,8 @@ par.refractiveIndices = [1.31 2.17 2.17]; % [RI_specimen, RI_intermed, RI_immoil
 par.nDiscretizationBFP = 129;%129; % change to like 501 or 1001 to make the ground truth dots line up better with the image
 par.pixelSize = Length(pixel_size_nm,'nm');
 par.pixelSensitivityMask = PixelSensitivity.uniform(9);
-par.backgroundNoise = 1/number_of_spots; % taken from looking at blank bit of example data
-par.nPhotons = 500;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
+par.backgroundNoise = 200; % taken from looking at blank bit of example data
+par.nPhotons = 1e9;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
 
 % Loop over a bunch of random orientations, positions, photon counts
 for run = 1:length(runs)
@@ -56,8 +56,8 @@ for run = 1:length(runs)
     
             fprintf('Running inc=%.2f az=%.2f\n', inclination_deg, azimuth_deg);
     
-            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/background_images/lowN/sim_inc%03i_az%03i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
-            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/background_images/lowN/params_inc%03i_az%03i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
+            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_finaltest/sims_highN/sim_inc%03i_az%03i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
+            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_finaltest/sims_highN/params_inc%03i_az%03i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
 
             % Need this for checking distance from neighbours
             positionX_nm_array = [];
@@ -95,8 +95,8 @@ for run = 1:length(runs)
                 % 
                 % end
             
-                positionX_nm = 0;%-pixel_size_nm/2 + rand*pixel_size_nm;
-                positionY_nm = 0;%-pixel_size_nm/2 + rand*pixel_size_nm;
+                positionX_nm = -pixel_size_nm/2 + rand*pixel_size_nm;
+                positionY_nm = -pixel_size_nm/2 + rand*pixel_size_nm;
 
                 angleInclination = inclination;%pi*rand;%(i-1)*(pi/2)/number_of_spots;%pi*rand; % symmetric about pi/2
                 angleAzimuth = azimuth;%2*pi*rand;%0; % doesn't affect anything
@@ -145,11 +145,11 @@ for run = 1:length(runs)
             t.write(psf_total_image);
             t.close();
     
-            % % Clip values just for display
-            % display_image = imread(output_path);
-            % display_image = double(display_image); % Convert to double for calculations
-            % display_image = (display_image - min(display_image(:))) / (max(display_image(:)) - min(display_image(:)));
-            % imshow(display_image)
+            % Clip values just for display
+            display_image = imread(output_path);
+            display_image = double(display_image); % Convert to double for calculations
+            display_image = (display_image - min(display_image(:))) / (max(display_image(:)) - min(display_image(:)));
+            imshow(display_image)
 
             fprintf('Simulation output to \n %s\n', output_path);
 
