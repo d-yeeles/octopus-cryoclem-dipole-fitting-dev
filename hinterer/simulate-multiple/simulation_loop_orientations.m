@@ -38,7 +38,7 @@ par.refractiveIndices = [1.31 2.17 2.17]; % [RI_specimen, RI_intermed, RI_immoil
 par.nDiscretizationBFP = 129;%129; % change to like 501 or 1001 to make the ground truth dots line up better with the image
 par.pixelSize = Length(pixel_size_nm,'nm');
 par.pixelSensitivityMask = PixelSensitivity.uniform(9);
-par.backgroundNoise = 200; % taken from looking at blank bit of example data
+backgroundNoise = 0; % taken from looking at blank bit of example data
 par.nPhotons = 1e9;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
 
 % Loop over a bunch of random orientations, positions, photon counts
@@ -56,8 +56,8 @@ for run = 1:length(runs)
     
             fprintf('Running inc=%.2f az=%.2f\n', inclination_deg, azimuth_deg);
     
-            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_finaltest/sims_highN/sim_inc%03i_az%03i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
-            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_finaltest/sims_highN/params_inc%03i_az%03i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
+            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_finaltest/background0/sims_highN/sim_inc%03i_az%03i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
+            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_finaltest/background0/sims_highN/params_inc%03i_az%03i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
 
             % Need this for checking distance from neighbours
             positionX_nm_array = [];
@@ -104,6 +104,17 @@ for run = 1:length(runs)
                 par.position = Length([positionX_nm positionY_nm 0], 'nm'); % This is nm away from centre of image
                 par.dipole = Dipole(angleInclination, angleAzimuth);
             
+                % no noise for each spot that we're adding on top of each
+                % other, then put noise in the final one
+
+                if i == number_of_spots
+                    par.backgroundNoise = backgroundNoise;
+                    par.shotNoise = 1;
+                else 
+                    par.backgroundNoise = 0;
+                    % par.shotNoise = 0;
+                end
+
                 psf = PSF(par);
             
                 % if first iteration, use this psf image

@@ -24,8 +24,6 @@ from scipy.special import jn,gamma,erfc,i1
 from scipy.optimize import fmin_powell, minimize
 from pylab import *
 import numpy
-# dave feb 2025 - particle swarm
-from pyswarm import pso
 
 # Script containing functions to perform Romberg Integration on the real axis.
 # The functions used as building blocks can be found in Numerical Recipes.
@@ -1611,14 +1609,6 @@ class MLEwT:
         # reparameterise: theta -> cos(2*theta)
         # phi -> sin(phi), cos(phi)
 
-        # Transformation of initial values
-        # pinit=zeros(7)
-        # pinit[0:2]=self.initvals[0:2] # x, y
-        # pinit[2]=sqrt(self.initvals[2]) # b
-        # pinit[3]=sqrt(self.initvals[3]) # N
-        # pinit[4]=self.initvals[4] # phi
-        # pinit[5]=self.initvals[5] # theta
-        # pinit[6]=self.initvals[6] # dz
         pinit=zeros(8)
         pinit[0:2]=self.initvals[0:2] # x, y
         pinit[2]=sqrt(self.initvals[2]) # b
@@ -1629,28 +1619,24 @@ class MLEwT:
         pinit[7]=self.initvals[6] # dz
 
         # Create instance of LogLikelihood object
-        # ll=LogLikelihood(counts,self.a,self.wl,self.NA,self.n,self.n0,self.M,pinit,\
-        #                  self.Sfloor,self.alpha,self.sigma)
         ll=LogLikelihood(counts,self.a,self.wl,self.NA,self.n,self.n0,self.M,pinit,\
                          self.Sfloor,self.alpha,self.sigma)
 
         # Perform maximization of the log-likelihood using Powell's method
         start_powell = time.time()
-        # res=fmin_powell(ll.Value,pinit,ftol=0.000000001,maxiter=50,maxfun=500)
-
-        bounds = [(-1000, 1000), (-1000, 1000), (None, None), (None, None), (-1, 1), (-1, 1), (-1, 1), (None, None)]
-
-        options = {
-            'maxiter': 1000,  # Maximum number of iterations
-            # 'maxfev': 500,  # Maximum number of function evaluations
-        }
-        res=minimize(ll.Value,pinit,method='trust-constr',bounds=bounds, options=options)
-
+        res=fmin_powell(ll.Value,pinit,ftol=0.000000001,maxiter=50,maxfun=500)
+        # bounds = [(-1000, 1000), (-1000, 1000), (sqrt(0), sqrt(2)), (sqrt((1e6)-100), sqrt((1e6)+100)), (-1, 1), (-1, 1), (-1, 1), (-1, 1)]
+        # options = {
+        #     'maxiter': 100000000,  # Maximum number of iterations
+        #     # 'xatol': 1e-32,
+        # }
+        # res=minimize(ll.Value,pinit,method='trust-constr',bounds=bounds, options=options)
+        # res=minimize(ll.Value,pinit,method='nelder-mead',bounds=bounds, options=options)
         end_powell = time.time()
         elapsed_time_powell = end_powell - start_powell
         print(f"Time: {elapsed_time_powell:.4f} seconds to maximization log-likelihood")
 
-        est=res.x#[0]
+        est=res.x[0]
         # warnflag=res[5]
 
         # L=ll.Value(est)
@@ -1696,62 +1682,6 @@ class MLEwT:
         print("y coordinate [nm] = ", around(y_est,3))
         print("azimuthal angle [rad] = ", around(phi_est,2))
         print("polar angle [rad] = ", around(theta_est,2))
-
-
-
-
-        # # Define the radial and azimuthal range
-        # r_vals = np.linspace(0, 29*51.2/2, 6)  # Radial values (in pixels or nm, adjust as needed)
-        # azimuth_vals = np.linspace(0, 2 * np.pi, 6)  # Azimuth values (0 to 2*pi)
-        #
-        # # Initialize cost function values (Negative Log-Likelihood)
-        # cost_matrix = np.zeros((len(r_vals), len(azimuth_vals)))
-        #
-        # # Compute the objective function (Negative Log-Likelihood) over radial and azimuthal coordinates
-        # for i in range(len(r_vals)):
-        #     for j in range(len(azimuth_vals)):
-        #         # Convert (r, θ) to (x, y)
-        #         x = r_vals[i] * np.cos(azimuth_vals[j])
-        #         y = r_vals[i] * np.sin(azimuth_vals[j])
-        #
-        #
-        #         # Transformation of initial values
-        #         pinit=zeros(7)
-        #         pinit[0:2]=i
-        #         pinit[2]=sqrt(self.initvals[2])
-        #         pinit[3]=sqrt(self.initvals[3])
-        #         pinit[4]=j
-        #         pinit[5]=self.initvals[5]
-        #         pinit[6]=self.initvals[6]
-        #
-        #         # Create instance of LogLikelihood object
-        #         ll=LogLikelihood(counts,self.a,self.wl,self.NA,self.n,self.n0,self.M,pinit,\
-        #                          self.Sfloor,self.alpha,self.sigma)
-        #
-        #         # Perform maximization of the log-likelihood using Powell's method
-        #         res=fmin_powell(ll.Value,pinit,ftol=0.0000001,maxiter=5000,full_output=1)#,maxfun=100000)
-        #         est=res[0]
-        #
-        #         cost_matrix[i, j] = -ll.Value(est)
-        #
-        # # Plot the objective function as a 3D surface plot (or 2D contour plot)
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection='3d')
-        #
-        # # Convert polar to Cartesian for surface plot
-        # AZI, R = np.meshgrid(azimuth_vals, r_vals)
-        # X, Y = R * np.cos(AZI), R * np.sin(AZI)
-        #
-        # # Create the 3D surface plot
-        # ax.plot_surface(X, Y, cost_matrix, cmap='jet', edgecolor='none')
-        # ax.set_xlabel('X Position')
-        # ax.set_ylabel('Y Position')
-        # ax.set_zlabel('Objective Function Value')
-        # ax.set_title('Objective Function in Polar Coordinates (Inclination = 0)')
-        #
-        # plt.show()
-
-
 
         return x_est, y_est, theta_est, phi_est, 0#cov_mat
         # return
@@ -1925,47 +1855,47 @@ if __name__=='__main__':
 
     close('all')
 
-    # Experimental parameters
-    wl=580.0
-    n=1.52
-    n0=1.33
-    NA=1.49
-    M=250.0
-    
-    deltax=32.0
-
-    # PSF parameters
-    N=10000.0
-    b=5.0
-    
-    mu=0.1
-    nu=0.1
-    phi=2*pi/3.0
-    theta=0.5
-
-    # Distance from design focal plane
-    deltaz=-30.0
-
-    # EMCCD parameters
-    inversegain=0.0089
-    sigmanoise=12.6
-    Sfloor=300.0
-    gain=1.0/inversegain
-
-    # Pixel array parameters
-    npix=12
-    deltapix=npix/2
-
-    # Load data
-    datamatrix=numpy.loadtxt('data.txt')
-
-    # Initial guess
-    initvals = array([mu,nu,b,N,phi,theta,deltaz])
-    initpix=(deltapix,deltapix)
-
-    # Create instance of MLEwT
-    track=MLEwT(wl,deltax,M,NA,n,np,n0,initvals,initpix,deltapix,Sfloor,inversegain,sigmanoise)
-    # Perform estimation
-    track.Estimate(datamatrix)
-
-    show()
+    # # Experimental parameters
+    # wl=580.0
+    # n=1.52
+    # n0=1.33
+    # NA=1.49
+    # M=250.0
+    #
+    # deltax=32.0
+    #
+    # # PSF parameters
+    # N=10000.0
+    # b=5.0
+    #
+    # mu=0.1
+    # nu=0.1
+    # phi=2*pi/3.0
+    # theta=0.5
+    #
+    # # Distance from design focal plane
+    # deltaz=-30.0
+    #
+    # # EMCCD parameters
+    # inversegain=0.0089
+    # sigmanoise=12.6
+    # Sfloor=300.0
+    # gain=1.0/inversegain
+    #
+    # # Pixel array parameters
+    # npix=12
+    # deltapix=npix/2
+    #
+    # # Load data
+    # datamatrix=numpy.loadtxt('data.txt')
+    #
+    # # Initial guess
+    # initvals = array([mu,nu,b,N,phi,theta,deltaz])
+    # initpix=(deltapix,deltapix)
+    #
+    # # Create instance of MLEwT
+    # track=MLEwT(wl,deltax,M,NA,n,np,n0,initvals,initpix,deltapix,Sfloor,inversegain,sigmanoise)
+    # # Perform estimation
+    # track.Estimate(datamatrix)
+    #
+    # show()

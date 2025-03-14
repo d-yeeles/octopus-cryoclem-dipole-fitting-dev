@@ -1,4 +1,4 @@
-
+import diPOLE_python3
 import diPOLE_python3_reparam
 from pylab import *
 import numpy as np
@@ -15,6 +15,58 @@ def nm_to_px(coord_nm, pixel_size_nm, image_size_px, x_or_y_flag):
     return coord_px
 
 def mortensen_single_frame(image_path):
+
+    # Load image - this should be an array of floats from 0-????
+    # (let's just use mortensen's example data to set the max for now I guess)
+    # image = cv2.imread(image_path, 0)
+    image = tifffile.imread(image_path)
+    mortensen_example_data = np.loadtxt('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/mortensen/mortensen-example-data.txt')
+    mort_min = np.min(mortensen_example_data)
+    mort_max = np.max(mortensen_example_data)
+    mort_range = mort_max - mort_min
+    # image = (image.astype(np.float64) / 255) * mort_range + mort_min
+
+    # fig, ax = plt.subplots(figsize=(5, 5))
+    # ax.imshow(image, extent=[-image_size_nm / 2, image_size_nm / 2, -image_size_nm / 2, image_size_nm / 2],
+    #           cmap='gray')
+    # ax.axis('off')
+    # plt.show()
+
+    # Loop over all blobs
+    x_list, y_list, phi_list, theta_list, covariance_list = [], [], [], [], []
+
+    start_blob = time.time()
+
+    # Create instance of MLEwT
+    track = diPOLE_python3.MLEwT(peak_emission_wavelength,
+                                 pixel_size_nm,
+                                 magnification,
+                                 numerical_aperture,
+                                 ref_ind_immersion,
+                                 ref_ind_imaging,
+                                 ref_ind_buffer,
+                                 initvals,
+                                 initpix,
+                                 deltapix,
+                                 Sfloor,
+                                 inverse_gain,
+                                 sigma_noise)
+
+    x_est, y_est, theta_est, phi_est, cov_mat = track.Estimate(image)
+    x_list.append(float(x_est))
+    y_list.append(float(y_est))
+    theta_list.append(float(theta_est))
+    phi_list.append(float(phi_est))
+    covariance_list.append(cov_mat)
+
+    end_blob = time.time()
+    elapsed_time_blob = end_blob - start_blob
+    print(f"Time: {elapsed_time_blob:.2f} seconds on this blob")
+
+    return x_list[0], y_list[0], theta_list[0], phi_list[0], covariance_list
+
+
+def mortensen_single_frame_reparam(image_path):
 
     # Load image - this should be an array of floats from 0-????
     # (let's just use mortensen's example data to set the max for now I guess)
@@ -66,6 +118,7 @@ def mortensen_single_frame(image_path):
     return x_list[0], y_list[0], theta_list[0], phi_list[0], covariance_list
 
 
+
 # --------------------
 # Mortensen run params
 # --------------------
@@ -81,8 +134,8 @@ pixel_size_nm = 51.2 # Pixel width (nm per px)
 # PSF parameters
 photon_number = 1e6 # Number of photons in image
 background_level = 1.0 # Background level
-mu = -11. # Initial guess location I think (nm)
-nu = 11. # Initial guess location I think (nm)
+mu = 12.345 # Initial guess location I think (nm)
+nu = 12.345 # Initial guess location I think (nm)
 phi = 0. # inclination
 theta = 0. # azimuthal angle
 deltaz = 0. # Distance from design focal plane
@@ -112,6 +165,8 @@ initpix = (deltapix, deltapix)
 
 # Mortensen run on each blob in each frame
 x_ests, y_ests, theta_ests, phi_ests, covariance_ests = [], [], [], [], []
+x_ests_reparam, y_ests_reparam, theta_ests_reparam, phi_ests_reparam, covariance_ests_reparam = [], [], [], [], []
+
 for i, frame_path in enumerate(frame_paths, 1):
 
     print("----------")
@@ -126,6 +181,13 @@ for i, frame_path in enumerate(frame_paths, 1):
     phi_ests.append(single_frame_results[3])
     # covariance_ests.append(single_frame_results[4])
 
+    single_frame_results_reparam = list(mortensen_single_frame_reparam(frame_path))
+
+    x_ests_reparam.append(single_frame_results_reparam[0])
+    y_ests_reparam.append(single_frame_results_reparam[1])
+    theta_ests_reparam.append(single_frame_results_reparam[2])
+    phi_ests_reparam.append(single_frame_results_reparam[3])
+
     end_frame = time.time()
     elapsed_time_frame = end_frame - start_frame
     elapsed_time_frame = elapsed_time_frame/60
@@ -137,16 +199,16 @@ theta_true = [0]
 phi_true = [0]
 
 print('estimates:')
-print(x_ests)
-print(y_ests)
-print(theta_ests)
-print(phi_ests)
+print(x_ests, x_ests_reparam)
+print(y_ests, y_ests_reparam)
+print(theta_ests, theta_ests_reparam)
+print(phi_ests, phi_ests_reparam)
 
 print('errors:')
-print([a - b for a, b in zip(x_true, x_ests)])
-print([a - b for a, b in zip(y_true, y_ests)])
-print([a - b for a, b in zip(theta_true, theta_ests)])
-print([a - b for a, b in zip(phi_true, phi_ests)])
+print([a - b for a, b in zip(x_true, x_ests)], [a - b for a, b in zip(x_true, x_ests_reparam)])
+print([a - b for a, b in zip(y_true, y_ests)], [a - b for a, b in zip(y_true, y_ests_reparam)])
+print([(a - b)*180/np.pi for a, b in zip(theta_true, theta_ests)], [(a - b)*180/np.pi for a, b in zip(theta_true, theta_ests_reparam)])
+print([(a - b)*180/np.pi for a, b in zip(phi_true, phi_ests)], [(a - b)*180/np.pi for a, b in zip(phi_true, phi_ests_reparam)])
 
 # fitting_results_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/mortensen/hinterer_sim/fitting_results.py'
 # mortensen_example_data = np.loadtxt(
@@ -177,5 +239,6 @@ ax.imshow(image_results, extent=[-image_size_nm / 2, image_size_nm / 2, -image_s
           cmap='gray')
 ax.scatter(x_true[0], y_true[0], color='red', s=10)  # s is the size of the dot
 ax.scatter(x_ests[0], y_ests[0], color='yellow', s=10)
+ax.scatter(x_ests_reparam[0], y_ests_reparam[0], color='green', s=10)
 ax.axis('off')
 plt.show()

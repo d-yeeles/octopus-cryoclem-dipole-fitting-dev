@@ -12,7 +12,7 @@ addpath(genpath('../'));
 %% Simulate
 %% ----------
 
-inclinations = 0:1*(pi/180):pi/2;%0:22.5*pi/180:pi/2;
+inclinations = 0:0.1*(pi/180):pi/2;%0:22.5*pi/180:pi/2;
 azimuths = 0:0;%0:180*(pi/180):2*pi-180*(pi/180);
 runs = 1:1;
 
@@ -24,7 +24,7 @@ padding = 0.15; % for avoiding edges
 inner_bound = padding;
 outer_bound = 1 - 2*padding;
 pixel_size_nm = 52;%/scalefactor;
-image_size_nm = sqrt(number_of_spots)*2500;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
+image_size_nm = sqrt(number_of_spots)*750;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
 image_size_px = roundToOdd(image_size_nm/pixel_size_nm);%rous   ndToOdd(201);%101*scalefactor); % must be odd
 
 % Attocube params
@@ -38,11 +38,11 @@ par.refractiveIndices = [1.31 2.17 2.17]; % [RI_specimen, RI_intermed, RI_immoil
 par.nDiscretizationBFP = 301;%129; % change to like 501 or 1001 to make the ground truth dots line up better with the image
 par.pixelSize = Length(pixel_size_nm,'nm');
 par.pixelSensitivityMask = PixelSensitivity.uniform(9);
-backgroundNoise = 200; % taken from looking at blank bit of example data
-par.nPhotons = 4000;%1000;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
+backgroundNoise = 200; % 200 taken from looking at blank bit of example data
+par.nPhotons = 2000;%1000;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
             
-output_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/10spot_testing_thunderstorm/stack_hinterer.tif';
-gt_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/10spot_testing_thunderstorm/ground_truth_hinterer.csv');
+output_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/10spot_testing_thunderstorm/2000photons_200noise_with_more_overlaps/stack_hinterer.tif';
+gt_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/10spot_testing_thunderstorm/2000photons_200noise_with_more_overlaps/ground_truth_hinterer.csv');
 
 frames = {};
 % Ground truth
@@ -78,32 +78,36 @@ for run = 1:length(runs)
     
             for i = 1:number_of_spots
 
-                % Random placement
-                min_distance_nm = 800;
-                valid_position = false;
+                % Just in the middle
+                positionX_nm = -image_size_nm/2 + rand*image_size_nm;
+                positionY_nm = -image_size_nm/2 + rand*image_size_nm;
 
-                while ~valid_position
-
-                    % Generate a random position avoiding edges
-                    relative_x = inner_bound + outer_bound * rand();
-                    relative_y = inner_bound + outer_bound * rand();
-
-                    % Convert to nm position
-                    positionX_nm = (relative_x - 0.5) * image_size_nm;
-                    positionY_nm = (relative_y - 0.5) * image_size_nm;
-
-                    % Check distance from all existing spots
-                    if isempty(testX_array)
-                        valid_position = true; % First spot is always valid
-                    else
-                        distances = sqrt((testX_array - positionX_nm).^2 + ...
-                                         (testY_array - positionY_nm).^2);
-                        if all(distances >= min_distance_nm)
-                            valid_position = true;
-                        end
-                    end
-
-                end
+                % % Random placement, avoiding overlaps
+                % min_distance_nm = 800;
+                % valid_position = false;
+                % 
+                % while ~valid_position
+                % 
+                %     % Generate a random position avoiding edges
+                %     relative_x = inner_bound + outer_bound * rand();
+                %     relative_y = inner_bound + outer_bound * rand();
+                % 
+                %     % Convert to nm position
+                %     positionX_nm = (relative_x - 0.5) * image_size_nm;
+                %     positionY_nm = (relative_y - 0.5) * image_size_nm;
+                % 
+                %     % Check distance from all existing spots
+                %     if isempty(testX_array)
+                %         valid_position = true; % First spot is always valid
+                %     else
+                %         distances = sqrt((testX_array - positionX_nm).^2 + ...
+                %                          (testY_array - positionY_nm).^2);
+                %         if all(distances >= min_distance_nm)
+                %             valid_position = true;
+                %         end
+                %     end
+                % 
+                % end
 
 
                 % % Regular grid
@@ -271,7 +275,7 @@ clear all;
 %% Simulate
 %% ----------
 
-inclinations = 0:1*(pi/180):pi/2;%0:22.5*pi/180:pi/2;
+inclinations = 0:0.1*(pi/180):pi/2;%0:22.5*pi/180:pi/2;
 azimuths = 0:0;%0:180*(pi/180):2*pi-180*(pi/180);
 runs = 1:1;
 
@@ -283,7 +287,7 @@ padding = 0.15; % for avoiding edges
 inner_bound = padding;
 outer_bound = 1 - 2*padding;
 pixel_size_nm = 52;%/scalefactor;
-image_size_nm = sqrt(number_of_spots)*2500;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
+image_size_nm = sqrt(number_of_spots)*750;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
 image_size_px = roundToOdd(image_size_nm/pixel_size_nm);%rous   ndToOdd(201);%101*scalefactor); % must be odd
 
 % Attocube params
@@ -298,10 +302,10 @@ par.nDiscretizationBFP = 301;%129; % change to like 501 or 1001 to make the grou
 par.pixelSize = Length(pixel_size_nm,'nm');
 par.pixelSensitivityMask = PixelSensitivity.uniform(9);
 backgroundNoise = 200; % taken from looking at blank bit of example data
-par.nPhotons = 4000/2;%1000;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
+par.nPhotons = 2000;%1000;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
 
-output_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/10spot_testing_thunderstorm/stack_gaussian.tif';
-gt_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/10spot_testing_thunderstorm/ground_truth_gaussian.csv');
+output_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/10spot_testing_thunderstorm/2000photons_200noise_with_more_overlaps/stack_gaussian.tif';
+gt_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/10spot_testing_thunderstorm/2000photons_200noise_with_more_overlaps/ground_truth_gaussian.csv');
 
 frames = {};
 % Ground truth
@@ -337,32 +341,36 @@ for run = 1:length(runs)
 
             for i = 1:number_of_spots
 
-                % Random placement
-                min_distance_nm = 800;
-                valid_position = false;
+                % Just in the middle
+                positionX_nm = -image_size_nm/2 + rand*image_size_nm;
+                positionY_nm = -image_size_nm/2 + rand*image_size_nm;
 
-                while ~valid_position
-
-                    % Generate a random position avoiding edges
-                    relative_x = inner_bound + outer_bound * rand();
-                    relative_y = inner_bound + outer_bound * rand();
-
-                    % Convert to nm position
-                    positionX_nm = (relative_x - 0.5) * image_size_nm;
-                    positionY_nm = (relative_y - 0.5) * image_size_nm;
-
-                    % Check distance from all existing spots
-                    if isempty(testX_array)
-                        valid_position = true; % First spot is always valid
-                    else
-                        distances = sqrt((testX_array - positionX_nm).^2 + ...
-                                         (testY_array - positionY_nm).^2);
-                        if all(distances >= min_distance_nm)
-                            valid_position = true;
-                        end
-                    end
-
-                end
+                % % Random placement, avoiding overlaps
+                % min_distance_nm = 800;
+                % valid_position = false;
+                % 
+                % while ~valid_position
+                % 
+                %     % Generate a random position avoiding edges
+                %     relative_x = inner_bound + outer_bound * rand();
+                %     relative_y = inner_bound + outer_bound * rand();
+                % 
+                %     % Convert to nm position
+                %     positionX_nm = (relative_x - 0.5) * image_size_nm;
+                %     positionY_nm = (relative_y - 0.5) * image_size_nm;
+                % 
+                %     % Check distance from all existing spots
+                %     if isempty(testX_array)
+                %         valid_position = true; % First spot is always valid
+                %     else
+                %         distances = sqrt((testX_array - positionX_nm).^2 + ...
+                %                          (testY_array - positionY_nm).^2);
+                %         if all(distances >= min_distance_nm)
+                %             valid_position = true;
+                %         end
+                %     end
+                % 
+                % end
 
 
                 % % Regular grid

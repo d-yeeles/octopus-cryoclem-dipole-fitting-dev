@@ -1,0 +1,48 @@
+Here is a Python file that has some model ('mortensen') of a point-spread function (PSF).
+
+I also have a different model ('hinterer') coded up in multiple MATLAB files. I will upload those later.
+
+Please recast the MATLAB PSF model into a form that can be used alongside the Python model. So for example, I can currently do this to use the original model:
+
+    track = diPOLE_python3.MLEwT(peak_emission_wavelength,
+                                 pixel_size_nm,
+                                 magnification,
+                                 numerical_aperture,
+                                 ref_ind_immersion,
+                                 ref_ind_imaging,
+                                 ref_ind_buffer,
+                                 initvals,
+                                 initpix,
+                                 deltapix,
+                                 Sfloor,
+                                 inverse_gain,
+                                 sigma_noise)
+
+    x_est, y_est, theta_est, phi_est, cov_mat = track.Estimate(image)
+    x_list.append(float(x_est))
+    y_list.append(float(y_est))
+    theta_list.append(float(theta_est))
+    phi_list.append(float(phi_est))
+
+
+But I would like to be able to do the same for the new model. Maybe something like:
+
+    track = diPOLE_python3.MLEwT_hinterer(peak_emission_wavelength,
+                                 pixel_size_nm,
+                                 magnification,
+                                 numerical_aperture,
+                                 ref_ind_immersion,
+                                 ref_ind_imaging,
+                                 ref_ind_buffer,
+                                 initvals,
+                                 initpix,
+                                 deltapix,
+                                 Sfloor,
+                                 inverse_gain,
+                                 sigma_noise)
+
+    x_est, y_est, theta_est, phi_est, cov_mat = track.Estimate(image)
+    x_list.append(float(x_est))
+    y_list.append(float(y_est))
+    theta_list.append(float(theta_est))
+    phi_list.append(float(phi_est))

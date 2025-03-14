@@ -21,11 +21,9 @@
 # Kim I. Mortensen
 
 from scipy.special import jn,gamma,erfc,i1
-from scipy.optimize import fmin_powell
+from scipy.optimize import fmin_powell, minimize
 from pylab import *
 import numpy
-# dave feb 2025 - particle swarm
-from pyswarm import pso
 
 # Script containing functions to perform Romberg Integration on the real axis.
 # The functions used as building blocks can be found in Numerical Recipes.
@@ -1364,89 +1362,7 @@ class LogLikelihood:
         # Create instance of dipole PSF
         self.dd=dipdistr(self.wl,self.n,self.n0,self.M,self.NA)
     
-    # def Value(self,x):
-    #
-    #     """ Calculation of the negative log-likelihood
-    #
-    #         Input:
-    #         ------------------------------------------------------------
-    #         x (array)       : Array of current parameter values
-    #
-    #         Output:
-    #         ------------------------------------------------------------
-    #         value (float)   : The negative log-likelihood
-    #     """
-    #
-    #     counts=self.counts
-    #     npix=self.npix
-    #     posvec=self.posvec
-    #
-    #     Sfloor=self.Sfloor
-    #     alpha=self.alpha
-    #     sigma=self.sigma
-    #
-    #     pij=zeros((npix,npix))
-    #
-    #     params=zeros(7)
-    #
-    #     # Assign parameters their current values
-    #     mux,muy,b,N,phi,theta,dz=x
-    #
-    #     # Convert parameters
-    #     b=b**2
-    #     N=N**2
-    #
-    #     # Calculate probabilities for all pixels
-    #     for i in range(int(npix)):
-    #         for j in range(int(npix)):
-    #             pij[j,i]=self.dd.PSF_approx(posvec[i]-mux,posvec[j]-muy,phi,theta,dz)
-    #     pij*=(self.pw**2)
-    #
-    #     # Subtract noise floor
-    #     effcounts=counts-Sfloor
-    #
-    #     # Calculate log-likelihood
-    #     value=0.0
-    #     for i in range(int(npix)):
-    #         for j in range(int(npix)):
-    #             eta=N*pij[j,i]+b
-    #
-    #             f0=alpha*exp(-eta)*eta
-    #             fp0=f0*0.5*alpha*(eta-2)
-    #
-    #             cij=effcounts[j,i]
-    #
-    #             # Functions for approximate convolution of the EMCCD readout-noise distribution
-    #             # with the signal distribution from the amplification
-    #             conv0=0.5*(1+erf(cij/(sqrt(2*sigma**2))))
-    #             conv1=sigma*exp(-cij**2/(2*sigma**2))/sqrt(2*pi)+cij*conv0
-    #             temp=(f0*conv0+fp0*conv1+exp(-eta)*gauss(cij,sigma))
-    #
-    #             if (cij>0.0):
-    #                 nij=alpha*cij
-    #                 # Use log-transform for large arguments
-    #                 if eta*nij>10**5:
-    #                     transform=0.5*log(alpha*eta/cij)-nij-eta+2*sqrt(eta*nij)\
-    #                                -log(2*sqrt(pi)*(eta*nij)**0.25)
-    #                     temp+=(exp(transform)-f0-fp0*cij)
-    #                 else:
-    #                     temp+=(sqrt(alpha*eta/cij)*exp(-nij-eta)*i1(2*sqrt(eta*nij))\
-    #                         -f0-fp0*cij)
-    #
-    #             # dave feb 2025 - temp sometimes hits 0 due to rounding errors
-    #             if temp <= 0:
-    #                 temp = 1e-6
-    #
-    #             value+=log(temp)
-    #
-    #     # The negative log-likelihood is to be minimized
-    #     value*=-1.0
-    #     # dave nov 2024 - commented out this below
-    #     # print("{:7.5f} {:5.3f} {:5.3f} {:5.3f} {:5.3f} {:5.3f} {:5.3f} {:5.3f}".format(value, mux, muy, b, N, theta, phi, dz))
-    #     return value
-
-    # dave feb 2025 - fix photon number, background noise, and z
-    def Value(self, x):
+    def Value(self,x):
 
         """ Calculation of the negative log-likelihood
 
@@ -1459,78 +1375,73 @@ class LogLikelihood:
             value (float)   : The negative log-likelihood
         """
 
-        b = 1
-        N = 50000
-        dz = 0
+        counts=self.counts
+        npix=self.npix
+        posvec=self.posvec
 
-        counts = self.counts
-        npix = self.npix
-        posvec = self.posvec
+        Sfloor=self.Sfloor
+        alpha=self.alpha
+        sigma=self.sigma
 
-        Sfloor = self.Sfloor
-        alpha = self.alpha
-        sigma = self.sigma
+        pij=zeros((npix,npix))
 
-        pij = zeros((npix, npix))
-
-        params = zeros(7)
+        params=zeros(7)
 
         # Assign parameters their current values
-        mux, muy, phi, theta = x
+        mux,muy,b,N,phi,theta,dz=x
 
         # Convert parameters
-        b = b ** 2
-        N = N ** 2
+        b=b**2
+        N=N**2
 
         # Calculate probabilities for all pixels
         for i in range(int(npix)):
             for j in range(int(npix)):
-                pij[j, i] = self.dd.PSF_approx(posvec[i] - mux, posvec[j] - muy, phi, theta, dz)
-        pij *= (self.pw ** 2)
+                pij[j,i]=self.dd.PSF_approx(posvec[i]-mux,posvec[j]-muy,phi,theta,dz)
+        pij*=(self.pw**2)
 
         # Subtract noise floor
-        effcounts = counts - Sfloor
+        effcounts=counts-Sfloor
 
         # Calculate log-likelihood
-        value = 0.0
+        value=0.0
         for i in range(int(npix)):
             for j in range(int(npix)):
-                eta = N * pij[j, i] + b
+                eta=N*pij[j,i]+b
 
-                f0 = alpha * exp(-eta) * eta
-                fp0 = f0 * 0.5 * alpha * (eta - 2)
+                f0=alpha*exp(-eta)*eta
+                fp0=f0*0.5*alpha*(eta-2)
 
-                cij = effcounts[j, i]
+                cij=effcounts[j,i]
 
                 # Functions for approximate convolution of the EMCCD readout-noise distribution
                 # with the signal distribution from the amplification
-                conv0 = 0.5 * (1 + erf(cij / (sqrt(2 * sigma ** 2))))
-                conv1 = sigma * exp(-cij ** 2 / (2 * sigma ** 2)) / sqrt(2 * pi) + cij * conv0
-                temp = (f0 * conv0 + fp0 * conv1 + exp(-eta) * gauss(cij, sigma))
+                conv0=0.5*(1+erf(cij/(sqrt(2*sigma**2))))
+                conv1=sigma*exp(-cij**2/(2*sigma**2))/sqrt(2*pi)+cij*conv0
+                temp=(f0*conv0+fp0*conv1+exp(-eta)*gauss(cij,sigma))
 
-                if (cij > 0.0):
-                    nij = alpha * cij
+                if (cij>0.0):
+                    nij=alpha*cij
                     # Use log-transform for large arguments
-                    if eta * nij > 10 ** 5:
-                        transform = 0.5 * log(alpha * eta / cij) - nij - eta + 2 * sqrt(eta * nij) \
-                                    - log(2 * sqrt(pi) * (eta * nij) ** 0.25)
-                        temp += (exp(transform) - f0 - fp0 * cij)
+                    if eta*nij>10**5:
+                        transform=0.5*log(alpha*eta/cij)-nij-eta+2*sqrt(eta*nij)\
+                                   -log(2*sqrt(pi)*(eta*nij)**0.25)
+                        temp+=(exp(transform)-f0-fp0*cij)
                     else:
-                        temp += (sqrt(alpha * eta / cij) * exp(-nij - eta) * i1(2 * sqrt(eta * nij)) \
-                                 - f0 - fp0 * cij)
+                        temp+=(sqrt(alpha*eta/cij)*exp(-nij-eta)*i1(2*sqrt(eta*nij))\
+                            -f0-fp0*cij)
 
                 # dave feb 2025 - temp sometimes hits 0 due to rounding errors
                 if temp <= 0:
                     temp = 1e-6
 
-                value += log(temp)
+                value+=log(temp)
 
         # The negative log-likelihood is to be minimized
-        value *= -1.0
+        value*=-1.0
         # dave nov 2024 - commented out this below
         # print("{:7.5f} {:5.3f} {:5.3f} {:5.3f} {:5.3f} {:5.3f} {:5.3f} {:5.3f}".format(value, mux, muy, b, N, theta, phi, dz))
         return value
-
     
 class MLEwT:
     
@@ -1617,13 +1528,27 @@ class MLEwT:
 
         # Perform maximization of the log-likelihood using Powell's method
         start_powell = time.time()
-        res=fmin_powell(ll.Value,pinit,ftol=0.000000001,maxiter=5,maxfun=1000)
+        res=fmin_powell(ll.Value,pinit,ftol=0.000000001,maxiter=15,maxfun=10)
         end_powell = time.time()
         elapsed_time_powell = end_powell - start_powell
         print(f"Time: {elapsed_time_powell:.4f} seconds to maximization log-likelihood")
 
-        est=res[0]
-        warnflag=res[5]
+        est=res#[0]
+
+        # # Perform maximization of the log-likelihood using Powell's method
+        # start_powell = time.time()
+        # # res=fmin_powell(ll.Value,pinit,ftol=0.000000001,maxiter=50,maxfun=500)
+        # bounds = [(-1000, 1000), (-1000, 1000), (None, None), (None, None), (0, 2*np.pi), (0, np.pi/2), (None, None)]
+        # options = {
+        #     'maxiter': 100,  # Maximum number of iterations
+        # }
+        # res=minimize(ll.Value,pinit,method='trust-constr',bounds=bounds, options=options)
+        # end_powell = time.time()
+        # elapsed_time_powell = end_powell - start_powell
+        # print(f"Time: {elapsed_time_powell:.4f} seconds to maximization log-likelihood")
+        # est=res.x#[0]
+
+        # warnflag=res[5]
 
         L=ll.Value(est)
 
@@ -1657,72 +1582,16 @@ class MLEwT:
         # print("covariance matrix = ")
         # print(covarmatrix)
 
-        print("\nx coordinate [nm] = ", around(est[0],3))
-        print("y coordinate [nm] = ", around(est[1],3))
-        print("azimuthal angle [rad] = ", around(est[2],2))
-        print("polar angle [rad] = ", around(est[3],2))
+        # print("\nx coordinate [nm] = ", around(est[0],3))
+        # print("y coordinate [nm] = ", around(est[1],3))
+        # print("azimuthal angle [rad] = ", around(est[4],2))
+        # print("polar angle [rad] = ", around(est[5],2))
 
         x_est = est[0]
         y_est = est[1]
-        phi_est = est[2] % (2 * np.pi)
-        theta_est = est[3] % (2 * np.pi)
+        phi_est = est[4] % (2 * np.pi)
+        theta_est = est[5] % (2 * np.pi)
         # cov_mat = covarmatrix
-
-
-
-
-        # # Define the radial and azimuthal range
-        # r_vals = np.linspace(0, 29*51.2/2, 6)  # Radial values (in pixels or nm, adjust as needed)
-        # azimuth_vals = np.linspace(0, 2 * np.pi, 6)  # Azimuth values (0 to 2*pi)
-        #
-        # # Initialize cost function values (Negative Log-Likelihood)
-        # cost_matrix = np.zeros((len(r_vals), len(azimuth_vals)))
-        #
-        # # Compute the objective function (Negative Log-Likelihood) over radial and azimuthal coordinates
-        # for i in range(len(r_vals)):
-        #     for j in range(len(azimuth_vals)):
-        #         # Convert (r, θ) to (x, y)
-        #         x = r_vals[i] * np.cos(azimuth_vals[j])
-        #         y = r_vals[i] * np.sin(azimuth_vals[j])
-        #
-        #
-        #         # Transformation of initial values
-        #         pinit=zeros(7)
-        #         pinit[0:2]=i
-        #         pinit[2]=sqrt(self.initvals[2])
-        #         pinit[3]=sqrt(self.initvals[3])
-        #         pinit[4]=j
-        #         pinit[5]=self.initvals[5]
-        #         pinit[6]=self.initvals[6]
-        #
-        #         # Create instance of LogLikelihood object
-        #         ll=LogLikelihood(counts,self.a,self.wl,self.NA,self.n,self.n0,self.M,pinit,\
-        #                          self.Sfloor,self.alpha,self.sigma)
-        #
-        #         # Perform maximization of the log-likelihood using Powell's method
-        #         res=fmin_powell(ll.Value,pinit,ftol=0.0000001,maxiter=5000,full_output=1)#,maxfun=100000)
-        #         est=res[0]
-        #
-        #         cost_matrix[i, j] = -ll.Value(est)
-        #
-        # # Plot the objective function as a 3D surface plot (or 2D contour plot)
-        # fig = plt.figure()
-        # ax = fig.add_subplot(111, projection='3d')
-        #
-        # # Convert polar to Cartesian for surface plot
-        # AZI, R = np.meshgrid(azimuth_vals, r_vals)
-        # X, Y = R * np.cos(AZI), R * np.sin(AZI)
-        #
-        # # Create the 3D surface plot
-        # ax.plot_surface(X, Y, cost_matrix, cmap='jet', edgecolor='none')
-        # ax.set_xlabel('X Position')
-        # ax.set_ylabel('Y Position')
-        # ax.set_zlabel('Objective Function Value')
-        # ax.set_title('Objective Function in Polar Coordinates (Inclination = 0)')
-        #
-        # plt.show()
-
-
 
         return x_est, y_est, theta_est, phi_est, 0#cov_mat
         # return
@@ -1891,52 +1760,52 @@ class MLEwTcovar:
         return diag(self.CovarianceMatrix(N,b,mu,phi,theta,deltaz))
 
 
-
-if __name__=='__main__':
-
-    close('all')
-
-    # Experimental parameters
-    wl=580.0
-    n=1.52
-    n0=1.33
-    NA=1.49
-    M=250.0
-    
-    deltax=32.0
-
-    # PSF parameters
-    N=10000.0
-    b=5.0
-    
-    mu=0.1
-    nu=0.1
-    phi=2*pi/3.0
-    theta=0.5
-
-    # Distance from design focal plane
-    deltaz=-30.0
-
-    # EMCCD parameters
-    inversegain=0.0089
-    sigmanoise=12.6
-    Sfloor=300.0
-    gain=1.0/inversegain
-
-    # Pixel array parameters
-    npix=12
-    deltapix=npix/2
-
-    # Load data
-    datamatrix=numpy.loadtxt('data.txt')
-
-    # Initial guess
-    initvals = array([mu,nu,b,N,phi,theta,deltaz])
-    initpix=(deltapix,deltapix)
-
-    # Create instance of MLEwT
-    track=MLEwT(wl,deltax,M,NA,n,np,n0,initvals,initpix,deltapix,Sfloor,inversegain,sigmanoise)
-    # Perform estimation
-    track.Estimate(datamatrix)
-
-    show()
+#
+# if __name__=='__main__':
+#
+#     close('all')
+#
+#     # Experimental parameters
+#     wl=580.0
+#     n=1.52
+#     n0=1.33
+#     NA=1.49
+#     M=250.0
+#
+#     deltax=32.0
+#
+#     # PSF parameters
+#     N=10000.0
+#     b=5.0
+#
+#     mu=0.1
+#     nu=0.1
+#     phi=2*pi/3.0
+#     theta=0.5
+#
+#     # Distance from design focal plane
+#     deltaz=-30.0
+#
+#     # EMCCD parameters
+#     inversegain=0.0089
+#     sigmanoise=12.6
+#     Sfloor=300.0
+#     gain=1.0/inversegain
+#
+#     # Pixel array parameters
+#     npix=12
+#     deltapix=npix/2
+#
+#     # Load data
+#     datamatrix=numpy.loadtxt('data.txt')
+#
+#     # Initial guess
+#     initvals = array([mu,nu,b,N,phi,theta,deltaz])
+#     initpix=(deltapix,deltapix)
+#
+#     # Create instance of MLEwT
+#     track=MLEwT(wl,deltax,M,NA,n,np,n0,initvals,initpix,deltapix,Sfloor,inversegain,sigmanoise)
+#     # Perform estimation
+#     track.Estimate(datamatrix)
+#
+#     show()

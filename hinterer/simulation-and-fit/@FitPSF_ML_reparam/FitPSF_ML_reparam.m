@@ -17,7 +17,8 @@ classdef FitPSF_ML_reparam
             'defocus', Length([-2000 2000], 'nm'), ...
             'cosInclination', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
             'cosAzimuth', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
-            'sinAzimuth', [-1, 1]);          % dave jan 2025 - adding angle optimiser
+            'sinAzimuth', [-1, 1], ...          % dave jan 2025 - adding angle optimiser
+            'photons', [1, 1e20]);          % dave jan 2025 - adding photon count optimiser
         
         parameterStartValues = struct( ...
             'x', Length(-100 + 200 * rand(), 'nm'), ...
@@ -25,18 +26,31 @@ classdef FitPSF_ML_reparam
             'defocus', Length(-500 + 1000 * rand(), 'nm'), ...
             'cosInclination', 2*(rand()-0.5), ...   % dave jan 2025 - adding angle optimiser
             'cosAzimuth', 2*(rand()-0.5), ...  % dave jan 2025 - adding angle optimiser
-            'sinAzimuth', 2*(rand()-0.5) ...  % dave jan 2025 - adding angle optimiser
-            );
+            'sinAzimuth', 2*(rand()-0.5), ...  % dave jan 2025 - adding angle optimiser
+            'photons', 1000);          % dave jan 2025 - adding photon count optimiser
         
         % Fit result
         estimatesPositionDefocus
+        
+        % BFP type indicator
+        bfpType = 'hinterer'  % Default to Hinterer BackFocalPlane
     end
     
     methods
-        function obj = FitPSF_ML_reparam(psf, par)
+        function obj = FitPSF_ML_reparam(psf, par, bfpType)
+            if nargin > 2
+                % If bfpType is provided, set it
+                if strcmpi(bfpType, 'gaussian')
+                    obj.bfpType = 'gaussian';
+                else
+                    obj.bfpType = 'hinterer';
+                end
+            end
+            
             if nargin > 1
                 obj = setInputParameters('FitPSF_ML_reparam', obj, par);
             end
+            
             if nargin > 0
                 obj.psf = psf;
                 obj.image = psf.image;
@@ -80,6 +94,7 @@ classdef FitPSF_ML_reparam
                 obj.parameterStartValues.cosInclination, ...
                 obj.parameterStartValues.cosAzimuth, ... 
                 obj.parameterStartValues.sinAzimuth, ... 
+                obj.parameterStartValues.photons, ... 
                 ];
 
             % Define parameter bounds
@@ -89,9 +104,10 @@ classdef FitPSF_ML_reparam
             cosInclinationBounds = obj.parameterBounds.cosInclination;
             cosAzimuthBounds = obj.parameterBounds.cosAzimuth;
             sinAzimuthBounds = obj.parameterBounds.sinAzimuth;
+            photonsBounds = obj.parameterBounds.photons;
 
-            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1)];
-            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2)];
+            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1), photonsBounds(1)];
+            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2), photonsBounds(2)];
 
             estimatesPositionDefocusLS = lsqcurvefit(funPsf, startValues, xdata, image, lowerBounds, upperBounds, options);
 
@@ -112,19 +128,21 @@ classdef FitPSF_ML_reparam
             cosInclinationBounds = obj.parameterBounds.cosInclination;
             cosAzimuthBounds = obj.parameterBounds.cosAzimuth;
             sinAzimuthBounds = obj.parameterBounds.sinAzimuth;
+            photonsBounds = obj.parameterBounds.photons;
 
-            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1)];
-            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2)];
+            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1), photonsBounds(1)];
+            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2), photonsBounds(2)];
 
             % options = optimoptions(@fmincon, 'Display', 'off', 'StepTolerance', 1e-10, 'OptimalityTolerance', 1e-10);
             options = optimoptions(@fmincon, ...
                 'Display', 'off', ...               % Do not display output
                 'StepTolerance', 1e-6, ...          % Stop when the step size is less than 1e-6
                 'OptimalityTolerance', 1e-6, ...    % Stop when the gradient is less than 1e-6
-                'FunctionTolerance', 1e-6, ...        % Stop if the function value change is less than 1e-6
-                'MaxIterations', 1e3, ...          % Stop after 1000 iterations
-                'MaxFunctionEvaluations', 1e4 ... % Stop after 5000 function evaluations
+                'FunctionTolerance', 1e-6 ...        % Stop if the function value change is less than 1e-6
                 );
+                %'MaxIterations', 1e3, ...          % Stop after 1000 iterations
+                %'MaxFunctionEvaluations', 1e4 ... % Stop after 5000 function evaluations
+                %);
 
             % % without 180 fudge
             % % estimatesPositionDefocusML = fminunc(@(x) -lnpdf(image, x), startValues, options);
@@ -147,6 +165,8 @@ classdef FitPSF_ML_reparam
                 estimatesPositionDefocusML = firstAttempt; % this is good enough, no need to do fudge
 
             else
+
+                disp('trying more')
 
                 % 2nd optimisation attempt
                 % change azimuth estimate by 180 degrees and try again
@@ -204,7 +224,7 @@ classdef FitPSF_ML_reparam
             inclination = 0.5*acos(lateralPositionAndDefocus(4));
             azimuth = atan2(lateralPositionAndDefocus(6), lateralPositionAndDefocus(5));
 
-            % disp(lateralPositionAndDefocus(4))
+            photonEstimate = lateralPositionAndDefocus(7);
 
             inclination = mod(inclination, pi/2);
             azimuth = mod(azimuth, 2*pi);
@@ -217,41 +237,52 @@ classdef FitPSF_ML_reparam
             %     fieldBFP = applyAberrations(psfEstimate, aberrationCoeffs);
             %     currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, fieldBFP);
             % end
-            % totalIntensity = sum(currentPsf,'all');
-            % currentPsf = currentPsf ./ totalIntensity * obj.nPhotonEstimate + obj.noiseEstimate;
-            % currentFitPSF = currentPsf ./ norm(currentPsf);
 
+
+            % ----------
             % dave jan 2025
             % doing more than the reduced form they were doing            
             
-            bfp = BackFocalPlane(psfEstimate);
-            % bfp = BackFocalPlane_gaussian(psfEstimate); % use this if want just Gaussian
+            % Select appropriate BackFocalPlane function based on bfpType
+            if strcmpi(obj.bfpType, 'gaussian')
+                bfp = BackFocalPlane_gaussian(psfEstimate); % Use Gaussian model
+            else
+                bfp = BackFocalPlane(psfEstimate); % Use Hinterer model
+            end
             psfEstimate.backFocalPlane = bfp;
 
-            % Apply phase mask
-            psfEstimate.fieldBFP.x = psfEstimate.phaseMaskObj.apply(bfp.electricField.x);
-            psfEstimate.fieldBFP.y = psfEstimate.phaseMaskObj.apply(bfp.electricField.y);
+            % dave
+            psfEstimate.fieldBFP.x = bfp.electricField.x;
+            psfEstimate.fieldBFP.y = bfp.electricField.y;
 
-            % Apply attenuation mask
-            psfEstimate.fieldBFP.x = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.x);
-            psfEstimate.fieldBFP.y = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.y);
+            % % Apply phase mask
+            % psfEstimate.fieldBFP.x = psfEstimate.phaseMaskObj.apply(bfp.electricField.x);
+            % psfEstimate.fieldBFP.y = psfEstimate.phaseMaskObj.apply(bfp.electricField.y);
+
+            % % Apply attenuation mask
+            % psfEstimate.fieldBFP.x = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.x);
+            % psfEstimate.fieldBFP.y = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.y);
 
             currentPsf = zeros(psfEstimate.nPixels,psfEstimate.nPixels); 
             for k=1:size(psfEstimate.stageDrift.motion,1)
                 % Apply aberrations
-                aberrations = getAberrations(psfEstimate,k);
-                aberratedFieldBFP = applyAberrations(psfEstimate, aberrations);
-                
+                aberrationCoeffs = getAberrations(psfEstimate,k);
+                fieldBFP = applyAberrations(psfEstimate, aberrationCoeffs);
                 % Get image from BFP field
-                currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, aberratedFieldBFP)./size(psfEstimate.stageDrift.motion,1);
+                % currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, aberratedFieldBFP)./size(psfEstimate.stageDrift.motion,1);
+                currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, fieldBFP);
             end
 
-            currentPsf = adjustExcitation(psfEstimate, currentPsf);
-            currentPsf = applyShotNoise(psfEstimate, currentPsf);
-            currentPsf = addBackgroundNoise(psfEstimate, currentPsf);
+            % currentPsf = adjustExcitation(psfEstimate, currentPsf);
+            % currentPsf = applyShotNoise(psfEstimate, currentPsf);
+            % currentPsf = addBackgroundNoise(psfEstimate, currentPsf);
+
+            % ----------
+
+            % photonEstimate = 1e9;
 
             totalIntensity = sum(currentPsf,'all');
-            currentPsf = currentPsf ./ totalIntensity * obj.nPhotonEstimate + obj.noiseEstimate;
+            currentPsf = currentPsf ./ totalIntensity * photonEstimate + obj.noiseEstimate;
             currentFitPSF = currentPsf ./ norm(currentPsf);
 
             % dave jan 2025
@@ -264,7 +295,7 @@ classdef FitPSF_ML_reparam
             %     iterationCounter = 0;
             % end
             % iterationCounter = iterationCounter + 1;  % Increment counter
-            % if mod(iterationCounter, 10) == 0  % Only output on every 10th iteration
+            % if mod(iterationCounter, 100) == 0  % Only output on every 10th iteration
             %     outputDirectory = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/optimiser_output';  % Define the output directory
             %     if ~exist(outputDirectory, 'dir')
             %         mkdir(outputDirectory);  % Create the directory if it doesn't exist
@@ -336,4 +367,3 @@ classdef FitPSF_ML_reparam
         par = readParametersEstimate(psf);
     end
 end
-

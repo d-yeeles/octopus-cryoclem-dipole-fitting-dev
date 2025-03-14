@@ -1,0 +1,159 @@
+Starting parameter sweep at 2025-03-07 12:20:06
+Processing: sigma = 1.00, fitradius = 1 at 2025-03-07 12:20:06
+
+Processing: sigma = 1.00, fitradius = 2 at 2025-03-07 12:20:11
+
+Processing: sigma = 1.00, fitradius = 3 at 2025-03-07 12:20:18
+
+Processing: sigma = 1.00, fitradius = 4 at 2025-03-07 12:20:24
+
+Processing: sigma = 1.00, fitradius = 5 at 2025-03-07 12:20:30
+
+Processing: sigma = 1.00, fitradius = 6 at 2025-03-07 12:20:38
+
+Processing: sigma = 1.25, fitradius = 1 at 2025-03-07 12:20:46
+
+Processing: sigma = 1.25, fitradius = 2 at 2025-03-07 12:20:53
+
+Processing: sigma = 1.25, fitradius = 3 at 2025-03-07 12:20:59
+
+Processing: sigma = 1.25, fitradius = 4 at 2025-03-07 12:21:05
+
+Processing: sigma = 1.25, fitradius = 5 at 2025-03-07 12:21:11
+
+Processing: sigma = 1.25, fitradius = 6 at 2025-03-07 12:21:18
+
+Processing: sigma = 1.50, fitradius = 1 at 2025-03-07 12:21:25
+
+Processing: sigma = 1.50, fitradius = 2 at 2025-03-07 12:21:32
+
+Processing: sigma = 1.50, fitradius = 3 at 2025-03-07 12:21:40
+
+Processing: sigma = 1.50, fitradius = 4 at 2025-03-07 12:21:45
+
+Processing: sigma = 1.50, fitradius = 5 at 2025-03-07 12:21:51
+
+Processing: sigma = 1.50, fitradius = 6 at 2025-03-07 12:21:57
+
+Processing: sigma = 1.75, fitradius = 1 at 2025-03-07 12:22:04
+
+Processing: sigma = 1.75, fitradius = 2 at 2025-03-07 12:22:12
+
+Processing: sigma = 1.75, fitradius = 3 at 2025-03-07 12:22:20
+
+Processing: sigma = 1.75, fitradius = 4 at 2025-03-07 12:22:25
+
+Processing: sigma = 1.75, fitradius = 5 at 2025-03-07 12:22:31
+
+Processing: sigma = 1.75, fitradius = 6 at 2025-03-07 12:22:38
+
+Processing: sigma = 2.00, fitradius = 1 at 2025-03-07 12:22:44
+
+Processing: sigma = 2.00, fitradius = 2 at 2025-03-07 12:22:52
+
+Processing: sigma = 2.00, fitradius = 3 at 2025-03-07 12:23:00
+
+Processing: sigma = 2.00, fitradius = 4 at 2025-03-07 12:23:06
+
+Processing: sigma = 2.00, fitradius = 5 at 2025-03-07 12:23:11
+
+Processing: sigma = 2.00, fitradius = 6 at 2025-03-07 12:23:17
+
+Processing: sigma = 2.25, fitradius = 1 at 2025-03-07 12:23:24
+
+Processing: sigma = 2.25, fitradius = 2 at 2025-03-07 12:23:31
+
+Processing: sigma = 2.25, fitradius = 3 at 2025-03-07 12:23:39
+
+Processing: sigma = 2.25, fitradius = 4 at 2025-03-07 12:23:45
+
+Processing: sigma = 2.25, fitradius = 5 at 2025-03-07 12:23:50
+
+Processing: sigma = 2.25, fitradius = 6 at 2025-03-07 12:23:57
+
+Processing: sigma = 2.50, fitradius = 1 at 2025-03-07 12:24:04
+
+Processing: sigma = 2.50, fitradius = 2 at 2025-03-07 12:24:11
+
+Processing: sigma = 2.50, fitradius = 3 at 2025-03-07 12:24:19
+
+Processing: sigma = 2.50, fitradius = 4 at 2025-03-07 12:24:25
+
+Processing: sigma = 2.50, fitradius = 5 at 2025-03-07 12:24:31
+
+Processing: sigma = 2.50, fitradius = 6 at 2025-03-07 12:24:37
+
+Processing: sigma = 2.75, fitradius = 1 at 2025-03-07 12:24:43
+
+Processing: sigma = 2.75, fitradius = 2 at 2025-03-07 12:24:51
+
+Processing: sigma = 2.75, fitradius = 3 at 2025-03-07 12:24:59
+
+Processing: sigma = 2.75, fitradius = 4 at 2025-03-07 12:25:05
+
+Processing: sigma = 2.75, fitradius = 5 at 2025-03-07 12:25:10
+
+Processing: sigma = 2.75, fitradius = 6 at 2025-03-07 12:25:16
+
+Processing: sigma = 3.00, fitradius = 1 at 2025-03-07 12:25:23
+
+Processing: sigma = 3.00, fitradius = 2 at 2025-03-07 12:25:30
+
+Processing: sigma = 3.00, fitradius = 3 at 2025-03-07 12:25:38
+
+Processing: sigma = 3.00, fitradius = 4 at 2025-03-07 12:25:43
+
+Processing: sigma = 3.00, fitradius = 5 at 2025-03-07 12:25:49
+
+Processing: sigma = 3.00, fitradius = 6 at 2025-03-07 12:25:55
+
+Processing: sigma = 3.25, fitradius = 1 at 2025-03-07 12:26:01
+
+Processing: sigma = 3.25, fitradius = 2 at 2025-03-07 12:26:07
+
+Processing: sigma = 3.25, fitradius = 3 at 2025-03-07 12:26:14
+
+Processing: sigma = 3.25, fitradius = 4 at 2025-03-07 12:26:19
+
+Processing: sigma = 3.25, fitradius = 5 at 2025-03-07 12:26:25
+
+Processing: sigma = 3.25, fitradius = 6 at 2025-03-07 12:26:30
+
+Processing: sigma = 3.50, fitradius = 1 at 2025-03-07 12:26:36
+
+Processing: sigma = 3.50, fitradius = 2 at 2025-03-07 12:26:42
+
+Processing: sigma = 3.50, fitradius = 3 at 2025-03-07 12:26:47
+
+Processing: sigma = 3.50, fitradius = 4 at 2025-03-07 12:26:52
+
+Processing: sigma = 3.50, fitradius = 5 at 2025-03-07 12:26:57
+
+Processing: sigma = 3.50, fitradius = 6 at 2025-03-07 12:27:02
+
+Processing: sigma = 3.75, fitradius = 1 at 2025-03-07 12:27:08
+
+Processing: sigma = 3.75, fitradius = 2 at 2025-03-07 12:27:12
+
+Processing: sigma = 3.75, fitradius = 3 at 2025-03-07 12:27:18
+
+Processing: sigma = 3.75, fitradius = 4 at 2025-03-07 12:27:22
+
+Processing: sigma = 3.75, fitradius = 5 at 2025-03-07 12:27:27
+
+Processing: sigma = 3.75, fitradius = 6 at 2025-03-07 12:27:32
+
+Processing: sigma = 4.00, fitradius = 1 at 2025-03-07 12:27:37
+
+Processing: sigma = 4.00, fitradius = 2 at 2025-03-07 12:27:42
+
+Processing: sigma = 4.00, fitradius = 3 at 2025-03-07 12:27:47
+
+Processing: sigma = 4.00, fitradius = 4 at 2025-03-07 12:27:52
+
+Processing: sigma = 4.00, fitradius = 5 at 2025-03-07 12:27:57
+
+Processing: sigma = 4.00, fitradius = 6 at 2025-03-07 12:28:01
+
+Processing complete at 2025-03-07 12:28:06
+

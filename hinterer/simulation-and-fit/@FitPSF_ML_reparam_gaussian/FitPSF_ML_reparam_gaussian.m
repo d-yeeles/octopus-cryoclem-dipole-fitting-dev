@@ -17,7 +17,8 @@ classdef FitPSF_ML_reparam_gaussian
             'defocus', Length([-2000 2000], 'nm'), ...
             'cosInclination', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
             'cosAzimuth', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
-            'sinAzimuth', [-1, 1]);          % dave jan 2025 - adding angle optimiser
+            'sinAzimuth', [-1, 1], ...          % dave jan 2025 - adding angle optimiser
+            'photons', [1, 1e20]);          % dave jan 2025 - adding photon count optimiser
         
         parameterStartValues = struct( ...
             'x', Length(-100 + 200 * rand(), 'nm'), ...
@@ -25,8 +26,8 @@ classdef FitPSF_ML_reparam_gaussian
             'defocus', Length(-500 + 1000 * rand(), 'nm'), ...
             'cosInclination', 2*(rand()-0.5), ...   % dave jan 2025 - adding angle optimiser
             'cosAzimuth', 2*(rand()-0.5), ...  % dave jan 2025 - adding angle optimiser
-            'sinAzimuth', 2*(rand()-0.5) ...  % dave jan 2025 - adding angle optimiser
-            );
+            'sinAzimuth', 2*(rand()-0.5), ...  % dave jan 2025 - adding angle optimiser
+            'photons', 1000);          % dave jan 2025 - adding photon count optimiser
         
         % Fit result
         estimatesPositionDefocus
@@ -70,7 +71,7 @@ classdef FitPSF_ML_reparam_gaussian
         function estimatesPositionDefocusLS = fitLeastSquaresPSF(obj, image, psfEstimate)
             % Define the negative log-likelihood function
             funPsf = @(lateralPositionAndDefocus,xdata) createFitPSF(obj, psfEstimate, lateralPositionAndDefocus);
-            xdata = zeros(obj.psf.nPixels,obj.psf.nPixels);
+            xdata = zeros(obj.psf.nPixels, obj.psf.nPixels);
             options = optimoptions('lsqcurvefit','Algorithm', 'trust-region-reflective', 'OptimalityTolerance', 5e-7, 'Display','off');
 
             startValues = [
@@ -80,6 +81,7 @@ classdef FitPSF_ML_reparam_gaussian
                 obj.parameterStartValues.cosInclination, ...
                 obj.parameterStartValues.cosAzimuth, ... 
                 obj.parameterStartValues.sinAzimuth, ... 
+                obj.parameterStartValues.photons, ... 
                 ];
 
             % Define parameter bounds
@@ -89,9 +91,10 @@ classdef FitPSF_ML_reparam_gaussian
             cosInclinationBounds = obj.parameterBounds.cosInclination;
             cosAzimuthBounds = obj.parameterBounds.cosAzimuth;
             sinAzimuthBounds = obj.parameterBounds.sinAzimuth;
+            photonsBounds = obj.parameterBounds.photons;
 
-            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1)];
-            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2)];
+            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1), photonsBounds(1)];
+            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2), photonsBounds(2)];
 
             estimatesPositionDefocusLS = lsqcurvefit(funPsf, startValues, xdata, image, lowerBounds, upperBounds, options);
 
@@ -101,7 +104,10 @@ classdef FitPSF_ML_reparam_gaussian
             % Define the negative log-likelihood function
             lnpdf = @(z, lateralPositionAndDefocus) lnpdfFunction(obj, psfEstimate, z, lateralPositionAndDefocus);
             costFunction = @(x) -lnpdf(image, x); % Negate likelihood for minimization
-        
+            
+            % constain solutions so that cos(az)^2 + sin(az)^2 = 1
+            nonlcon = @(x) deal(x(5)^2 + x(6)^2 - 1, []);
+
             % Define parameter bounds
             xBounds = obj.parameterBounds.x.inNanometer;
             yBounds = obj.parameterBounds.y.inNanometer;
@@ -109,26 +115,82 @@ classdef FitPSF_ML_reparam_gaussian
             cosInclinationBounds = obj.parameterBounds.cosInclination;
             cosAzimuthBounds = obj.parameterBounds.cosAzimuth;
             sinAzimuthBounds = obj.parameterBounds.sinAzimuth;
+            photonsBounds = obj.parameterBounds.photons;
 
-            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1)];
-            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2)];
+            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), cosInclinationBounds(1), cosAzimuthBounds(1), sinAzimuthBounds(1), photonsBounds(1)];
+            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), cosInclinationBounds(2), cosAzimuthBounds(2), sinAzimuthBounds(2), photonsBounds(2)];
 
             % options = optimoptions(@fmincon, 'Display', 'off', 'StepTolerance', 1e-10, 'OptimalityTolerance', 1e-10);
             options = optimoptions(@fmincon, ...
                 'Display', 'off', ...               % Do not display output
                 'StepTolerance', 1e-6, ...          % Stop when the step size is less than 1e-6
                 'OptimalityTolerance', 1e-6, ...    % Stop when the gradient is less than 1e-6
-                'FunctionTolerance', 1e-6, ...        % Stop if the function value change is less than 1e-6
-                'MaxIterations', 1e20, ...          % Stop after 1000 iterations
-                'MaxFunctionEvaluations', 1e20 ... % Stop after 5000 function evaluations
+                'FunctionTolerance', 1e-6 ...        % Stop if the function value change is less than 1e-6
                 );
+                %'MaxIterations', 1e3, ...          % Stop after 1000 iterations
+                %'MaxFunctionEvaluations', 1e4 ... % Stop after 5000 function evaluations
+                %);
 
-            % estimatesPositionDefocusML = fminunc(@(x) -lnpdf(image, x), startValues, options);
-            estimatesPositionDefocusML = fmincon(@(x) -lnpdf(image, x), startValues, [], [], [], [], lowerBounds, upperBounds, [], options);
-
-            % add in something to save the value of the objetive function
-            estimatesPositionDefocusML(end+1) = costFunction(estimatesPositionDefocusML);
+            % % without 180 fudge
+            % % estimatesPositionDefocusML = fminunc(@(x) -lnpdf(image, x), startValues, options);
+            % estimatesPositionDefocusML = fmincon(@(x) -lnpdf(image, x), startValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
+            % % add in something to save the value of the objective function
+            % estimatesPositionDefocusML(end+1) = costFunction(estimatesPositionDefocusML);
             
+
+            % with 180 fudge
+            % first optimisation attempt
+            firstAttempt = fmincon(@(x) -lnpdf(image, x), startValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
+            firstCost = costFunction(firstAttempt);
+
+            % try fudge if it estimates inc=0,90 to within 0.5 deg
+            condition1 = abs(0.5 * acos(firstAttempt(4)) - pi/2) >= 0.1*pi/180; % if estimate is within 0.5 deg of 90
+            % condition2 = abs(0.5 * acos(firstAttempt(4)) - 0) >= 0.5*pi/180; % if estimate is within 0.5 deg of 0
+
+            if condition1% || condition2
+
+                estimatesPositionDefocusML = firstAttempt; % this is good enough, no need to do fudge
+
+            else
+
+                % 2nd optimisation attempt
+                % change azimuth estimate by 180 degrees and try again
+                secondStartValues = startValues;
+                secondStartValues(5) = -firstAttempt(5); % because cos(x-pi) = -cos(x)
+                secondStartValues(6) = -firstAttempt(6); % because sin(x-pi) = -sin(x)
+                secondAttempt = fmincon(@(x) -lnpdf(image, x), secondStartValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
+                secondCost = costFunction(secondAttempt);
+
+                % 3rd optimisation attempt
+                % change inclination estimate by 90 degrees and try again
+                thirdStartValues = startValues;
+                thirdStartValues(4) = -firstAttempt(4); % because cos(2*(x-pi/2)) = cos(2*x-pi) = -cos(2x)
+                thirdAttempt = fmincon(@(x) -lnpdf(image, x), thirdStartValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
+                thirdCost = costFunction(thirdAttempt);
+
+                % 4th optimisation attempt
+                % change inclination and azimuth estimates by 180 and 90 degrees respectively and try again
+                fourthStartValues = startValues;
+                fourthStartValues(4) = -firstAttempt(4); % because cos(2*(x-pi/2)) = cos(2*x-pi) = -cos(2x)
+                fourthStartValues(5) = -firstAttempt(5); % because cos(x-pi) = -cos(x)
+                fourthStartValues(6) = -firstAttempt(6); % because sin(x-pi) = -sin(x)
+                fourthAttempt = fmincon(@(x) -lnpdf(image, x), fourthStartValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
+                fourthCost = costFunction(fourthAttempt);
+
+                attempts = {firstAttempt, secondAttempt, thirdAttempt, fourthAttempt};
+                costs = [firstCost, secondCost, thirdCost, fourthCost];
+
+                % find index of the minimum cost
+                [~, minIndex] = min(costs);
+
+                % use that attempt's estimates as final result
+                estimatesPositionDefocusML = attempts{minIndex};
+
+            end
+
+            % add in something to save the value of the objective function
+            estimatesPositionDefocusML(end+1) = costFunction(estimatesPositionDefocusML);
+
         end
 
         function currentlnpdf = lnpdfFunction(obj,psfEstimate,z,lateralPositionAndDefocus) 
@@ -147,7 +209,7 @@ classdef FitPSF_ML_reparam_gaussian
             inclination = 0.5*acos(lateralPositionAndDefocus(4));
             azimuth = atan2(lateralPositionAndDefocus(6), lateralPositionAndDefocus(5));
 
-            % disp(lateralPositionAndDefocus(4))
+            photonEstimate = lateralPositionAndDefocus(7);
 
             inclination = mod(inclination, pi/2);
             azimuth = mod(azimuth, 2*pi);
@@ -160,10 +222,9 @@ classdef FitPSF_ML_reparam_gaussian
             %     fieldBFP = applyAberrations(psfEstimate, aberrationCoeffs);
             %     currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, fieldBFP);
             % end
-            % totalIntensity = sum(currentPsf,'all');
-            % currentPsf = currentPsf ./ totalIntensity * obj.nPhotonEstimate + obj.noiseEstimate;
-            % currentFitPSF = currentPsf ./ norm(currentPsf);
 
+
+            % ----------
             % dave jan 2025
             % doing more than the reduced form they were doing            
             
@@ -171,30 +232,39 @@ classdef FitPSF_ML_reparam_gaussian
             bfp = BackFocalPlane_gaussian(psfEstimate); % use this if want just Gaussian
             psfEstimate.backFocalPlane = bfp;
 
-            % Apply phase mask
-            psfEstimate.fieldBFP.x = psfEstimate.phaseMaskObj.apply(bfp.electricField.x);
-            psfEstimate.fieldBFP.y = psfEstimate.phaseMaskObj.apply(bfp.electricField.y);
+            % dave
+            psfEstimate.fieldBFP.x = bfp.electricField.x;
+            psfEstimate.fieldBFP.y = bfp.electricField.y;
 
-            % Apply attenuation mask
-            psfEstimate.fieldBFP.x = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.x);
-            psfEstimate.fieldBFP.y = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.y);
+            % % Apply phase mask
+            % psfEstimate.fieldBFP.x = psfEstimate.phaseMaskObj.apply(bfp.electricField.x);
+            % psfEstimate.fieldBFP.y = psfEstimate.phaseMaskObj.apply(bfp.electricField.y);
+
+            % % Apply attenuation mask
+            % psfEstimate.fieldBFP.x = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.x);
+            % psfEstimate.fieldBFP.y = psfEstimate.attenuationMaskObj.apply(psfEstimate.fieldBFP.y);
 
             currentPsf = zeros(psfEstimate.nPixels,psfEstimate.nPixels); 
             for k=1:size(psfEstimate.stageDrift.motion,1)
                 % Apply aberrations
-                aberrations = getAberrations(psfEstimate,k);
-                aberratedFieldBFP = applyAberrations(psfEstimate, aberrations);
-                
+                aberrationCoeffs = getAberrations(psfEstimate,k);
+                fieldBFP = applyAberrations(psfEstimate, aberrationCoeffs);
                 % Get image from BFP field
-                currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, aberratedFieldBFP)./size(psfEstimate.stageDrift.motion,1);
+                % currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, aberratedFieldBFP)./size(psfEstimate.stageDrift.motion,1);
+                currentPsf = currentPsf + getIntensitiesCamera(psfEstimate, fieldBFP);
             end
 
-            currentPsf = adjustExcitation(psfEstimate, currentPsf);
-            currentPsf = applyShotNoise(psfEstimate, currentPsf);
-            currentPsf = addBackgroundNoise(psfEstimate, currentPsf);
+            % currentPsf = adjustExcitation(psfEstimate, currentPsf);
+            % currentPsf = applyShotNoise(psfEstimate, currentPsf);
+            % currentPsf = addBackgroundNoise(psfEstimate, currentPsf);
+
+            % ----------
+
+
+
 
             totalIntensity = sum(currentPsf,'all');
-            currentPsf = currentPsf ./ totalIntensity * obj.nPhotonEstimate + obj.noiseEstimate;
+            currentPsf = currentPsf ./ totalIntensity * photonEstimate + obj.noiseEstimate;
             currentFitPSF = currentPsf ./ norm(currentPsf);
 
             % dave jan 2025
@@ -207,7 +277,7 @@ classdef FitPSF_ML_reparam_gaussian
             %     iterationCounter = 0;
             % end
             % iterationCounter = iterationCounter + 1;  % Increment counter
-            % if mod(iterationCounter, 10) == 0  % Only output on every 10th iteration
+            % if mod(iterationCounter, 100) == 0  % Only output on every 10th iteration
             %     outputDirectory = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/optimiser_output';  % Define the output directory
             %     if ~exist(outputDirectory, 'dir')
             %         mkdir(outputDirectory);  % Create the directory if it doesn't exist
