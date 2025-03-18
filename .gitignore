@@ -3,5 +3,6 @@
 *.tif
 *.mp4
 *.png
+*.tiff
 attic/
 */attic/

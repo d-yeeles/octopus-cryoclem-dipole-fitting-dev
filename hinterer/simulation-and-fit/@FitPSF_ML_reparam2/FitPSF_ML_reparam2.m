@@ -17,7 +17,7 @@ classdef FitPSF_ML_reparam2
             'defocus', Length([-2000 2000], 'nm'), ...
             'newangle1', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
             'newangle2', [-1, 1], ...       % dave jan 2025 - adding angle optimiser
-            'newangle3', [-1, 1], ...          % dave jan 2025 - adding angle optimiser
+            'newangle3', [0, 1], ...          % dave jan 2025 - adding angle optimiser
             'photons', [1, 1e20]);          % dave jan 2025 - adding photon count optimiser
         
         parameterStartValues = struct( ...
@@ -26,7 +26,7 @@ classdef FitPSF_ML_reparam2
             'defocus', Length(-500 + 1000 * rand(), 'nm'), ...
             'newangle1', 2*(rand()-0.5), ...   % dave jan 2025 - adding angle optimiser
             'newangle2', 2*(rand()-0.5), ...  % dave jan 2025 - adding angle optimiser
-            'newangle3', 2*(rand()-0.5), ...  % dave jan 2025 - adding angle optimiser
+            'newangle3', rand(), ...  % dave jan 2025 - adding angle optimiser
             'photons', 1000);          % dave jan 2025 - adding photon count optimiser
         
         % Fit result
@@ -157,13 +157,13 @@ classdef FitPSF_ML_reparam2
             firstAttempt = fmincon(@(x) -lnpdf(image, x), startValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
             firstCost = costFunction(firstAttempt);
 
-            thetaEst = 0.5*acos(firstAttempt(6));
+            thetaEst = acos(firstAttempt(6));
             phiEst = atan2(firstAttempt(5), firstAttempt(4));
             thetaEst = mod(thetaEst, pi/2);
             phiEst = mod(phiEst, 2*pi);
 
             % try fudge if it estimates inc=0,90 to within 0.5 deg
-            condition1 = abs(thetaEst - pi/2) >= 99999999;%1*pi/180; % if estimate is within 0.5 deg of 90
+            condition1 = abs(thetaEst - pi/2) >= 1*pi/180; % if estimate is within 0.5 deg of 90
             % condition2 = abs(phiEst - pi) >= 1*pi/180; % if estimate is within 0.5 deg of 0
 
             if condition1% || condition2
@@ -186,18 +186,18 @@ classdef FitPSF_ML_reparam2
                 % 3rd optimisation attempt
                 % change inclination estimate by 90 degrees and try again
                 thirdStartValues = startValues;
-                thirdStartValues(4) = sin(thetaEst - pi/2)*cos(phiEst);
-                thirdStartValues(5) = sin(thetaEst - pi/2)*sin(phiEst);
-                thirdStartValues(6) = cos(thetaEst - pi/2);
+                thirdStartValues(4) = sin(5*pi/180)*cos(phiEst);
+                thirdStartValues(5) = sin(5*pi/180)*sin(phiEst);
+                thirdStartValues(6) = cos(5*pi/180);
                 thirdAttempt = fmincon(@(x) -lnpdf(image, x), thirdStartValues, [], [], [], [], lowerBounds, upperBounds, [], options);
                 thirdCost = costFunction(thirdAttempt);
 
                 % 4th optimisation attempt
                 % change inclination and azimuth estimates by 180 and 90 degrees respectively and try again
                 fourthStartValues = startValues;
-                fourthStartValues(4) = sin(thetaEst - pi/2)*cos(phiEst - pi);
-                fourthStartValues(5) = sin(thetaEst - pi/2)*sin(phiEst - pi);
-                fourthStartValues(6) = cos(thetaEst - pi/2);
+                fourthStartValues(4) = sin(5*pi/180)*cos(phiEst - pi);
+                fourthStartValues(5) = sin(5*pi/180)*sin(phiEst - pi);
+                fourthStartValues(6) = cos(5*pi/180);
                 fourthAttempt = fmincon(@(x) -lnpdf(image, x), fourthStartValues, [], [], [], [], lowerBounds, upperBounds, [], options);
                 fourthCost = costFunction(fourthAttempt);
 
@@ -230,7 +230,7 @@ classdef FitPSF_ML_reparam2
             psfEstimate.position = Length([lateralPositionAndDefocus(1:2), 0], 'nm');
             psfEstimate.defocus = Length(lateralPositionAndDefocus(3), 'nm');
 
-            inclination = 0.5*acos(lateralPositionAndDefocus(6));
+            inclination = acos(lateralPositionAndDefocus(6));
             azimuth = atan2(lateralPositionAndDefocus(5), lateralPositionAndDefocus(4));
 
             photonEstimate = lateralPositionAndDefocus(7);

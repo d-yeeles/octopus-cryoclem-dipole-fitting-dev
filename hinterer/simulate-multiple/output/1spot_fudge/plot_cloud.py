@@ -66,8 +66,8 @@ module_names = ['gaussian', 'hinterer', 'mortensen', 'mortensen2']
 file_paths = [
     './fitting_results_hinterer_noreparam_nofudge.py',
     './fitting_results_hinterer_noreparam_fudge.py',
+    './fitting_results_hinterer_reparam2d_nofudge.py',
     './fitting_results_hinterer_reparam2d_fudge.py',
-    './fitting_results_hinterer_reparam2d_allfudge.py',
 ]
 
 
