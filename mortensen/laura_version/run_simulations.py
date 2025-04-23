@@ -1,7 +1,29 @@
 import numpy as np
+import os, importlib
 import test
 import time
 from save_results import save_results_to_py
+
+def load_existing_results(filename):
+    """
+    Load existing theta (inc_tru) and phi (az_tru) values from the results file.
+    Returns a set of (theta, phi) tuples.
+    """
+    # Check if the file exists
+    if not os.path.exists(filename):
+        return set()
+    
+    # Dynamically load the module
+    spec = importlib.util.spec_from_file_location("existing_results", filename)
+    existing_results = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(existing_results)
+    
+    # Extract inc_tru and az_tru lists
+    if hasattr(existing_results, 'inc_tru') and hasattr(existing_results, 'az_tru'):
+        # Create a set of (theta, phi) tuples
+        return {(inc, az) for inc, az in zip(existing_results.inc_tru, existing_results.az_tru)}
+    
+    return set()
 
 def run_test(phi, theta, filename, num_repeats=20, start_counter=1):
     """
@@ -33,26 +55,32 @@ def run_test(phi, theta, filename, num_repeats=20, start_counter=1):
 
 def main():
     # Define theta and phi values
-    chosen_thetas = [67.5]  # [0, 22.5, 45, 67.5, 90]
-    chosen_phis = [0, 45, 135, 180, 225, 270, 315]
-#    fixed_phis = list(range(10, 361, 20)) + list(range(0, 361, 20))
-#    fixed_phis = [x for x in range(0, 361, 5) if x % 10 != 0]
-#    fixed_phis = [x for x in range(361) if x % 5 != 0]
-#    fixed_phis = np.arange(0.5, 360, 1)
-    done = np.append(np.arange(0, 90, 1), np.arange(90, 361, 5))
-    fixed_phis = [x for x in np.arange(0, 360, 0.5) if x not in done]
-
-    fixed_thetas = list(range(0, 91, 2))
+    chosen_thetas = [45, 67.5]#[0, 22.5, 45, 67.5, 90]
+    #chosen_phis = [0, 45, 135, 180, 225, 270, 315]
+    fixed_phis = np.arange(30, 360, 2)
+    #fixed_thetas = list(range(0, 91, 2))
+    #done = np.append(np.arange(0, 90, 1), np.arange(90, 361, 5))
+    #fixed_phis = [x for x in np.arange(0, 360, 0.5) if x not in done]
     num_repeats = 1
     
     # Initialize counter outside the loop
     counter = 1
     
+    filename = f"fitting_results_mortensen_5.py"
+   
+    existing_combinations = load_existing_results(filename)
+
     # Run tests for each theta and varying phi values
     for theta in chosen_thetas:
-        filename = f"fitting_results_fudge_powell_lots.py"
         for phi in fixed_phis:
+
+            # Check if this combination already in results file
+            if (theta*np.pi/180, phi*np.pi/180) in existing_combinations:
+#                print(f"Skipping existing combination: θ = {theta}°, ϕ = {phi}°")
+                continue
+            
             counter = run_test(phi * np.pi / 180, theta * np.pi / 180, filename, num_repeats, counter)
+
 #    for phi in chosen_phis:
 #        filename = f"results_phi_{phi}.csv"
 #        for theta in fixed_thetas:

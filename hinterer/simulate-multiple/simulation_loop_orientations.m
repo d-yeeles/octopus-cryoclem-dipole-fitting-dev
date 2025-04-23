@@ -12,9 +12,11 @@ addpath(genpath('../'));
 %% Simulate
 %% ----------
 
-inclinations = 0:22.5*(pi/180):pi/2;%0:22.5*pi/180:pi/2;
-azimuths = 0:1*(pi/180):2*pi-1*(pi/180);%0:4*pi/180:2*pi;
-runs = 1:5;
+model = 'hinterer';
+
+inclinations = 0:22.5*(pi/180):pi/2;
+azimuths = 0:2*(pi/180):2*pi-1*(pi/180);
+runs = 1:1;
 
 % Global params - these will be the same whether sim or fit
 
@@ -24,8 +26,8 @@ padding = 0.15; % for avoiding edges
 inner_bound = padding;
 outer_bound = 1 - 2*padding;
 pixel_size_nm = 52/scalefactor;
-image_size_nm = sqrt(number_of_spots)*1000;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
-image_size_px = roundToOdd(image_size_nm/pixel_size_nm);%rous   ndToOdd(201);%101*scalefactor); % must be odd
+image_size_nm = 988;%sqrt(number_of_spots)*1000;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
+image_size_px = roundToOdd(image_size_nm/pixel_size_nm);%roundToOdd(201);%101*scalefactor); % must be odd
 
 % Attocube params
 wavelength = 500;
@@ -39,71 +41,79 @@ par.nDiscretizationBFP = 129;%129; % change to like 501 or 1001 to make the grou
 par.pixelSize = Length(pixel_size_nm,'nm');
 par.pixelSensitivityMask = PixelSensitivity.uniform(9);
 backgroundNoise = 0; % taken from looking at blank bit of example data
-par.nPhotons = 1e9;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
+par.nPhotons = 2000;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
+
+counter = 0;
 
 % Loop over a bunch of random orientations, positions, photon counts
 for run = 1:length(runs)
-    
+
     for inclination_index = 1:length(inclinations)
-    
+
         for azimuth_index = 1:length(azimuths)
-    
+
+            counter = counter + 1;
+
             inclination = inclinations(inclination_index);
             azimuth = azimuths(azimuth_index);
-    
+
             inclination_deg = inclination*180/pi;
             azimuth_deg = azimuth*180/pi;
-    
+
             fprintf('Running inc=%.2f az=%.2f\n', inclination_deg, azimuth_deg);
-    
-            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_finaltest/background0/sims_highN/sim_inc%03i_az%03i_run%i.tif', round(inclination_deg), round(azimuth_deg), round(run));
-            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_finaltest/background0/sims_highN/params_inc%03i_az%03i_run%i.m', round(inclination_deg), round(azimuth_deg), round(run));
+
+            % output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer_68/sim_theta%03i_phi%03i_run%i.tif', ceil(inclination_deg), ceil(azimuth_deg), round(run));
+            % data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer_68/params_theta%03i_phi%03i_run%i.m', ceil(inclination_deg), ceil(azimuth_deg), round(run));
+            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer_all/sim_frame%06d.tif', round(counter));
+            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer_all/params_frame%06d.m', round(counter));
 
             % Need this for checking distance from neighbours
             positionX_nm_array = [];
             positionY_nm_array = [];
             angleInclination_array = [];
             angleAzimuth_array = [];
-    
+
             tic;
-    
+
             for i = 1:number_of_spots
-                                
-                % min_distance_nm = 1000;
-                % valid_position = false;
-                % 
-                % while ~valid_position
-                % 
-                %     % Generate a random position avoiding edges
-                %     relative_x = inner_bound + outer_bound * rand();
-                %     relative_y = inner_bound + outer_bound * rand();
-                % 
-                %     % Convert to nm position
-                %     positionX_nm = (relative_x - 0.5) * image_size_nm;
-                %     positionY_nm = (relative_y - 0.5) * image_size_nm;
-                % 
-                %     % Check distance from all existing spots
-                %     if isempty(positionX_nm_array)
-                %         valid_position = true; % First spot is always valid
-                %     else
-                %         distances = sqrt((positionX_nm_array - positionX_nm).^2 + ...
-                %                          (positionY_nm_array - positionY_nm).^2);
-                %         if all(distances >= min_distance_nm)
-                %             valid_position = true;
-                %         end
-                %     end
-                % 
-                % end
-            
+
+            %     % use this if want no overlaps
+            %     min_distance_nm = 1000;
+            %     valid_position = false;
+            % 
+            %     while ~valid_position
+            % 
+            %         % Generate a random position avoiding edges
+            %         relative_x = inner_bound + outer_bound * rand();
+            %         relative_y = inner_bound + outer_bound * rand();
+            % 
+            %         % Convert to nm position
+            %         positionX_nm = (relative_x - 0.5) * image_size_nm;
+            %         positionY_nm = (relative_y - 0.5) * image_size_nm;
+            % 
+            %         % Check distance from all existing spots
+            %         if isempty(positionX_nm_array)
+            %             valid_position = true; % First spot is always valid
+            %         else
+            %             distances = sqrt((positionX_nm_array - positionX_nm).^2 + ...
+            %                              (positionY_nm_array - positionY_nm).^2);
+            %             if all(distances >= min_distance_nm)
+            %                 valid_position = true;
+            %             end
+            %         end
+            % 
+            %     end
+
+                % use this if just want random positions
                 positionX_nm = -pixel_size_nm/2 + rand*pixel_size_nm;
                 positionY_nm = -pixel_size_nm/2 + rand*pixel_size_nm;
 
                 angleInclination = inclination;%pi*rand;%(i-1)*(pi/2)/number_of_spots;%pi*rand; % symmetric about pi/2
                 angleAzimuth = azimuth;%2*pi*rand;%0; % doesn't affect anything
-            
+
                 par.position = Length([positionX_nm positionY_nm 0], 'nm'); % This is nm away from centre of image
                 par.dipole = Dipole(angleInclination, angleAzimuth);
-            
+
                 % no noise for each spot that we're adding on top of each
                 % other, then put noise in the final one
 
@@ -112,11 +122,20 @@ for run = 1:length(runs)
                     par.shotNoise = 1;
                 else 
                     par.backgroundNoise = 0;
-                    % par.shotNoise = 0;
+                    par.shotNoise = 0;
                 end
 
-                psf = PSF(par);
-            
+                % psf = PSF(par);
+                if strcmpi(model, 'hinterer')
+                    % par.pixelSensitivityMask = PixelSensitivity.uniform(9);
+                    psf = PSF(par);
+                elseif strcmpi(model, 'mortensen')
+                    % par.pixelSensitivityMask = PixelSensitivity.uniform(1);
+                    psf = PSF_mortensen(par);
+                else
+                    error('Unknown model type: %s', model);
+                end
+
                 % if first iteration, use this psf image
                 % later loops just add to this image
                 if i == 1
@@ -124,17 +143,17 @@ for run = 1:length(runs)
                 else
                     psf_total_image = psf_total_image + psf.image;
                 end
-            
+
             positionX_nm_array(end+1) = positionX_nm;
             positionY_nm_array(end+1) = positionY_nm;
             angleInclination_array(end+1) = angleInclination;
             angleAzimuth_array(end+1) = angleAzimuth;
-    
+
             end % end loop over blobs
-    
+
             elapsed_time = toc;
             fprintf('    Generated frame in %.2f seconds\n', elapsed_time);
-    
+
             % % Output as png
             % psf_total_image = uint32(psf_total_image);
             % display_image = double(psf_total_image); % Convert to double for calculations
@@ -155,17 +174,21 @@ for run = 1:length(runs)
             t.setTag(tagstruct);
             t.write(psf_total_image);
             t.close();
-    
-            % Clip values just for display
-            display_image = imread(output_path);
-            display_image = double(display_image); % Convert to double for calculations
-            display_image = (display_image - min(display_image(:))) / (max(display_image(:)) - min(display_image(:)));
-            imshow(display_image)
+
+            % % Output as csv
+            % % writematrix(psf_total_image, output_path);
+            % writematrix(flipud(fliplr(psf_total_image)), output_path); % rotate upside-down to match Mortensen phi definition
+
+            % % Clip values just for display
+            % display_image = imread(output_path);
+            % display_image = double(display_image); % Convert to double for calculations
+            % display_image = (display_image - min(display_image(:))) / (max(display_image(:)) - min(display_image(:)));
+            % imshow(display_image)
 
             fprintf('Simulation output to \n %s\n', output_path);
 
             % Save ground truth info
-    
+
             fileID = fopen(data_output_path, 'w');
             fprintf(fileID, '%% ground truth for sim_inc%i_az%i_run%i.tif\n', round(inclination_deg), round(azimuth_deg), round(run));
             fprintf(fileID, '%% settings\n');
@@ -186,9 +209,9 @@ for run = 1:length(runs)
             fprintf(fileID, 'angleInclination_array = [%s]\n', num2str(angleInclination_array, ' %d ,'));
             fprintf(fileID, 'angleAzimuth_array = [%s]\n', num2str(angleAzimuth_array, ' %d ,'));
             fclose(fileID);
-           
+
         end % end loop over azimuths
-    
+
     end % end loop over inclinations
 
 end % end loop over runs

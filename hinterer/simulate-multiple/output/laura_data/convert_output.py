@@ -1,10 +1,11 @@
 '''
-USAGE: python laura_to_dave.py "string_match*" output.py
+USAGE: python convert_output_updated.py "string_match*" output.py
 '''
 
 import pandas as pd
 import sys
 import glob
+import numpy as np
 
 def combine_csv_files(input_pattern):
     # Find all CSV files matching the pattern
@@ -21,6 +22,11 @@ def combine_csv_files(input_pattern):
     for file in files[1:]:
         df = pd.read_csv(file)
         df_combined = pd.concat([df_combined, df], ignore_index=True)
+
+    # Remove any rows with NaN values in any column
+    df_combined = df_combined.dropna()
+    
+    print(f"Combined {len(files)} files. Kept {len(df_combined)} rows after removing NaN values.")
 
     # Return the combined DataFrame
     return df_combined
@@ -47,7 +53,7 @@ def csv_to_python(df, output_py_file):
 
 # Check for correct number of arguments
 if len(sys.argv) != 3:
-    print("Usage: python blah.py input_pattern output.py")
+    print("Usage: python convert_output_updated.py input_pattern output.py")
     sys.exit(1)
 
 # Get file names from command line arguments
@@ -59,4 +65,3 @@ df_combined = combine_csv_files(input_pattern)
 
 # Run the conversion on the combined DataFrame
 csv_to_python(df_combined, output_py)
-

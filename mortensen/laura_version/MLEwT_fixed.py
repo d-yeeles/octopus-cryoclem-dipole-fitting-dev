@@ -26,6 +26,7 @@ from numpy import sin, cos
 from numpy.linalg import inv
 from scipy.special import i1, jn, gamma, erf, gammaln
 from scipy.optimize import fmin_powell, minimize, BFGS
+from scipy.optimize import SR1, BFGS
 from numint import qromb
 #from numint import qromb
 
@@ -886,6 +887,8 @@ class MLEwT:
 #        print(f"    initial phi = {round(np.arctan2(pinit[1], pinit[0])*180/np.pi % 360)}")
 #        print(f"    initial params = ({round(pinit[0], 4)}, {round(pinit[1], 4)}, {round(pinit[2], 4)})")        
 
+
+
         # Create instance of LogLikelihood object
         ll=LogLikelihood(counts, self.psf_generator)
 
@@ -895,6 +898,7 @@ class MLEwT:
 
         def constraint(x):
             return x[0]**2 + x[1]**2 + x[2]**2 - 1
+
         constraints = (
             {'type': 'eq', 'fun': constraint},  # 'eq' means equality constraint
         )
@@ -904,7 +908,10 @@ class MLEwT:
             return np.zeros((n, n))
 
         options = {
-#           'maxiter': 5,
+            'maxiter': 1e12,
+            'maxfev': 1e12,
+            'xtol': 1e-12,
+            'ftol': 1e-12,
         }
 
         # Store all parameters and scores
@@ -922,51 +929,159 @@ class MLEwT:
         # Check if theta estimate is near 90 degrees
         phi_est = np.arctan2(first_attempt_params[1], first_attempt_params[0]) % (2*np.pi)
         theta_est = 1.0 * np.arccos(first_attempt_params[2]) % (np.pi/2)
-        conditionA = abs(theta_est - np.pi/2) <= 0.1*np.pi/180
-        conditionB = any(abs(phi_est - angle) <= 20*np.pi/180 for angle in np.array([0, 90, 180, 270, 360]) * np.pi/180)
 
-        # If it is, repeat until it's not (or max reached)
-        attempt_count = 1
-        max_attempts = 10
+
+
+
+
+        # Hinterer-style repetitions
+        conditionA = abs(theta_est - np.pi/2) >= 9999999999#1*np.pi/180
         
-        while (conditionA or conditionB) and attempt_count < max_attempts:
-            attempt_count += 1
-            print(f'    Attempt {attempt_count}')
-            
-            # Generate new initial values
-            random_init = pinit.copy()
-            
-            # First, try using the previous phi but with a different theta
-            # That often works
-            if attempt_count == 2:
-                random_init[0] = np.sin(theta_est)*np.cos(phi_est - np.pi)
-                random_init[1] = np.sin(theta_est)*np.sin(phi_est - np.pi)
-                random_init[2] = np.cos(theta_est)
-            else:
-                # For additional attempts, use random initial values
-                for i in range(len(pinit)):
-                  lower, upper = bounds[i]
-                  random_init[i] = np.random.uniform(lower, upper)
-            
-            res = minimize(ll.Value, random_init, method='Powell', bounds=bounds, options=options)
-            current_params = res.x
-            current_score = ll.Value(current_params)
-            params.append(current_params)
-            scores.append(current_score)
-            
-            # Check if theta estimate is close to 90 degrees
-            phi_est = np.arctan2(current_params[1], current_params[0]) % (2*np.pi)
-            theta_est = 1.0 * np.arccos(current_params[2]) % (np.pi/2)
-            conditionA = abs(theta_est - np.pi/2) <= 0.1*np.pi/180
-            conditionB = any(abs(phi_est - angle) <= 20*np.pi/180 for angle in np.array([0, 90, 180, 270, 360]) * np.pi/180)
-            
-            # If not near 90, finish
-            if not (conditionA or conditionB):
-                break
+        if conditionA:
         
-        # Find the best solution from all attempts
-        min_score_index = scores.index(min(scores))
-        winning_params = params[min_score_index]
+            winning_params = first_attempt_params
+            
+        else:
+
+            print('trying more attempts')
+
+            second_attempt_pinit = first_attempt_params
+            second_attempt_pinit[0] = np.sin(theta_est)*np.cos(phi_est - np.pi)
+            second_attempt_pinit[1] = np.sin(theta_est)*np.sin(phi_est - np.pi)
+            second_attempt_pinit[2] = np.cos(theta_est)
+
+            res = minimize(ll.Value, second_attempt_pinit, method='Powell', bounds=bounds, options=options)
+            second_attempt_params = res.x
+            second_attempt_score = ll.Value(second_attempt_params)
+            params.append(first_attempt_params)
+            scores.append(first_attempt_score)
+        
+        
+        
+            third_attempt_pinit = first_attempt_params
+            third_attempt_pinit[0] = np.sin(theta_est - np.pi/2)*np.cos(phi_est)
+            third_attempt_pinit[1] = np.sin(theta_est - np.pi/2)*np.sin(phi_est)
+            third_attempt_pinit[2] = np.cos(theta_est - np.pi/2)
+
+            res = minimize(ll.Value, third_attempt_pinit, method='Powell', bounds=bounds, options=options)
+            third_attempt_params = res.x
+            third_attempt_score = ll.Value(third_attempt_params)
+            params.append(first_attempt_params)
+            scores.append(first_attempt_score)
+        
+        
+        
+            fourth_attempt_pinit = first_attempt_params
+            fourth_attempt_pinit[0] = np.sin(theta_est - np.pi/2)*np.cos(phi_est - np.pi)
+            fourth_attempt_pinit[1] = np.sin(theta_est - np.pi/2)*np.sin(phi_est - np.pi)
+            fourth_attempt_pinit[2] = np.cos(theta_est - np.pi/2)
+
+            res = minimize(ll.Value, fourth_attempt_pinit, method='Powell', bounds=bounds, options=options)
+            fourth_attempt_params = res.x
+            fourth_attempt_score = ll.Value(fourth_attempt_params)
+            params.append(first_attempt_params)
+            scores.append(first_attempt_score)
+
+
+       
+#            fifth_attempt_pinit = first_attempt_params
+#            fifth_attempt_pinit[0] = np.sin(theta_est - np.pi/2)*np.cos(phi_est - np.pi/2)
+#            fifth_attempt_pinit[1] = np.sin(theta_est - np.pi/2)*np.sin(phi_est - np.pi/2)
+#            fifth_attempt_pinit[2] = np.cos(theta_est - np.pi/2)
+#
+#            res = minimize(ll.Value, fifth_attempt_pinit, method='Powell', bounds=bounds, options=options)
+#            fifth_attempt_params = res.x
+#            fifth_attempt_score = ll.Value(fifth_attempt_params)
+#            params.append(first_attempt_params)
+#            scores.append(first_attempt_score)
+#
+#
+#            sixth_attempt_pinit = first_attempt_params
+#            sixth_attempt_pinit[0] = np.sin(theta_est - np.pi/2)*np.cos(phi_est - np.pi/4)
+#            sixth_attempt_pinit[1] = np.sin(theta_est - np.pi/2)*np.sin(phi_est - np.pi/4)
+#            sixth_attempt_pinit[2] = np.cos(theta_est - np.pi/2)
+#
+#            res = minimize(ll.Value, sixth_attempt_pinit, method='Powell', bounds=bounds, options=options)
+#            sixth_attempt_params = res.x
+#            sixth_attempt_score = ll.Value(sixth_attempt_params)
+#            params.append(first_attempt_params)
+#            scores.append(first_attempt_score)
+#
+#
+#
+#            seventh_attempt_pinit = first_attempt_params
+#            seventh_attempt_pinit[0] = np.sin(theta_est - np.pi/2)*np.cos(phi_est - 3*np.pi/4)
+#            seventh_attempt_pinit[1] = np.sin(theta_est - np.pi/2)*np.sin(phi_est - 3*np.pi/4)
+#            seventh_attempt_pinit[2] = np.cos(theta_est - np.pi/2)
+#
+#            res = minimize(ll.Value, seventh_attempt_pinit, method='Powell', bounds=bounds, options=options)
+#            seventh_attempt_params = res.x
+#            seventh_attempt_score = ll.Value(seventh_attempt_params)
+#            params.append(first_attempt_params)
+#            scores.append(first_attempt_score)
+
+
+
+
+
+
+ 
+        
+            # Find the best solution from all attempts
+            min_score_index = scores.index(min(scores))
+            winning_params = params[min_score_index]
+        
+        
+        
+        
+        
+#        Loads of random additional attempts
+#
+#        conditionA = abs(theta_est - np.pi/2) <= 0.1*np.pi/180
+#        conditionB = any(abs(phi_est - angle) <= 20*np.pi/180 for angle in np.array([0, 90, 180, 270, 360]) * np.pi/180)
+#
+#        # If it is, repeat until it's not (or max reached)
+#        attempt_count = 1
+#        max_attempts = 10
+#        
+#        while (conditionA or conditionB) and attempt_count < max_attempts:
+#            attempt_count += 1
+#            print(f'    Attempt {attempt_count}')
+#            
+#            # Generate new initial values
+#            random_init = pinit.copy()
+#            
+#            # First, try using the previous phi but with a different theta
+#            # That often works
+#            if attempt_count == 2:
+#                random_init[0] = np.sin(theta_est)*np.cos(phi_est - np.pi)
+#                random_init[1] = np.sin(theta_est)*np.sin(phi_est - np.pi)
+#                random_init[2] = np.cos(theta_est)
+#            else:
+#                # For additional attempts, use random initial values
+#                for i in range(len(pinit)):
+#                  lower, upper = bounds[i]
+#                  random_init[i] = np.random.uniform(lower, upper)
+#            
+#            res = minimize(ll.Value, random_init, method='Powell', bounds=bounds, options=options)
+#            current_params = res.x
+#            current_score = ll.Value(current_params)
+#            params.append(current_params)
+#            scores.append(current_score)
+#            
+#            # Check if theta estimate is close to 90 degrees
+#            phi_est = np.arctan2(current_params[1], current_params[0]) % (2*np.pi)
+#            theta_est = 1.0 * np.arccos(current_params[2]) % (np.pi/2)
+#            conditionA = abs(theta_est - np.pi/2) <= 0.1*np.pi/180
+#            conditionB = any(abs(phi_est - angle) <= 20*np.pi/180 for angle in np.array([0, 90, 180, 270, 360]) * np.pi/180)
+#            
+#            # If not near 90, finish
+#            if not (conditionA or conditionB):
+#                break
+#        
+#        # Find the best solution from all attempts
+#        min_score_index = scores.index(min(scores))
+#        winning_params = params[min_score_index]
 
 
 

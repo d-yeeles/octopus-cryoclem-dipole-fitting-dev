@@ -33,7 +33,7 @@ dBlues = LinearSegmentedColormap.from_list('dblue_to_white', [(1, 1, 1), dblue],
 dYellows = LinearSegmentedColormap.from_list('dyellow_to_white', [(1, 1, 1), dyellow], N=100)
 
 # Initialise empty dataframes
-data_gaussian = pd.DataFrame(columns=[
+data_mortensen = pd.DataFrame(columns=[
     "x_tru",
     "y_tru",
     "inc_tru",
@@ -56,20 +56,14 @@ data_gaussian = pd.DataFrame(columns=[
     "photon_err"
 ])
 
-data_hinterer = data_gaussian.copy()
-data_mortensen = data_gaussian.copy()
-data_mortensen2 = data_gaussian.copy()
+data_mortensen_2 = data_mortensen.copy()
 
-datasets = [data_gaussian, data_hinterer, data_mortensen, data_mortensen2]
-model_names = ['No fudge, powell', 'Fudge, powell', 'Fudge, powell, last night', 'Fudge, powell, random attempts']
-
-module_names = ['gaussian', 'hinterer', 'mortensen', 'mortensen2']
+datasets = [data_mortensen, data_mortensen_2]
+model_names = ['mortensen', 'mortensen 2']
+module_names = ['mortensen', 'mortensen 2']
 file_paths = [
-    './fitting_results_nofudge_powell.py',
-    './fitting_results_fudge_powell_extracondition.py',
-#    './fitting_results_allfudge_powell.py',
-    './working_best/fitting_results_fudge_powell_lots.py',
-    './fitting_results_fudge_powell_lots.py',
+    'fitting_results_mortensen_4.py',
+    'fitting_results_mortensen_5.py',
 ]
 
 
@@ -138,18 +132,15 @@ output_dir = './'
 
 # Azimuth plots
 
+fig, axs = plt.subplots(2, 2, figsize=(12, 12))
+
 # Generate plots for each fixed inclination
-for inclination in [68]:#0, 23, 45, 68, 90]:
-   
-    fig, axs = plt.subplots(4, 2, figsize=(10, 18))
+for i, inclination in enumerate([45, 68]):
 
+    for j, dataset in enumerate(datasets):
 
-
-    # -----------------------
-    # Plot theta error/estimate
-    # -----------------------
-    for i, dataset in enumerate(datasets):
         dataset_inc = dataset[np.abs(dataset['inc_tru'] - inclination) <= 5]
+
         IQR_multiplier = 5000
         
         # Get error data
@@ -173,169 +164,43 @@ for inclination in [68]:#0, 23, 45, 68, 90]:
         # Filter all relevant data using the mask
         filtered_para = para_err[mask]
         filtered_perp = perp_err[mask]
-        filtered_az_err = dataset_inc["inc_est"][mask]  # Using az_err for coloring
+        filtered_az_err = dataset_inc["az_err"][mask]  # Using az_err for coloring
         
         # Single scatter plot with para_err on x-axis and perp_err on y-axis
-        scatter = axs[i, 0].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')
-        
-        # Add axis labels and title
-        axs[i, 0].set_xlabel('Parallel error (Δ$\parallel$), nm')
-        axs[i, 0].set_ylabel('Perpendicular error (Δ$\perp$), nm')
-        axs[i, 0].set_title(
-            f"{model_names[i]}\n"
-            f"θ = {inclination}°"
-        )
-        
-        # Add colorbar
-        cbar = fig.colorbar(scatter, ax=axs[i, 0], pad=0.01)
-        cbar.set_label('Theta estimate')
-        
-        # Add a reference circle showing the IQR*5 boundary
-        max_val = max(abs(filtered_para.max()), abs(filtered_para.min()), 
-                      abs(filtered_perp.max()), abs(filtered_perp.min()))
-        axs[i, 0].set_xlim(-max_val*1.1, max_val*1.1)
-        axs[i, 0].set_ylim(-max_val*1.1, max_val*1.1)
-        
-        # Force aspect ratio to be 1:1
-        axs[i, 0].set_aspect('equal')
-        axs[i, 0].grid(True, linestyle='--', alpha=0.7)
-        axs[i, 0].axhline(y=0, color='gray', linestyle='-', alpha=0.5)
-        axs[i, 0].axvline(x=0, color='gray', linestyle='-', alpha=0.5)
-
-        # Add text labels showing inc_est
-#        for x, y, label in zip(filtered_para, filtered_perp, filtered_az_err):
-#            axs[i, 0].text(x, y, f"{label:.2f}°", fontsize=6, ha='right', va='bottom', color='black', alpha=0.7)
+        scatter = axs[i, j].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')#, vmin=0, vmax=90)
     
+#        # Add text labels for az_est beside each point
+#        for x, y, az in zip(filtered_para, filtered_perp, filtered_az_err):
+#            axs[i, j].text(x, y, f'{az:.1f}', fontsize=6, color='black', ha='left', va='bottom', alpha=0.7)
 
-    # -----------------------
-    # Plot phi error/estimate
-    # -----------------------
-    for i, dataset in enumerate(datasets):
-        dataset_inc = dataset[np.abs(dataset['inc_tru'] - inclination) <= 5]
-        IQR_multiplier = 5000
-        
-        # Get error data
-        para_err = dataset_inc["para_err"]
-        perp_err = dataset_inc["perp_err"]
-        combined_err = np.sqrt(para_err**2 + perp_err**2)
-        
-        # IQR to remove outliers based on combined error
-        Q1 = np.percentile(combined_err, 25)
-        Q3 = np.percentile(combined_err, 75)
-        IQR = Q3 - Q1
-        lower_bound = Q1 - IQR_multiplier * IQR
-        upper_bound = Q3 + IQR_multiplier * IQR
-        
-        # Filter data and calculate outlier percentage
-        mask = (combined_err >= lower_bound) & (combined_err <= upper_bound)
-        total_points = len(combined_err)
-        outliers = total_points - np.sum(mask)
-        outlier_percent = (outliers / total_points) * 100 if total_points > 0 else 0
-        
-        # Filter all relevant data using the mask
-        filtered_para = para_err[mask]
-        filtered_perp = perp_err[mask]
-        filtered_az_err = dataset_inc["az_est"][mask]  # Using az_err for coloring
-        
-        # Single scatter plot with para_err on x-axis and perp_err on y-axis
-        scatter = axs[i, 1].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')
-        
+    
         # Add axis labels and title
-        axs[i, 1].set_xlabel('Parallel error (Δ$\parallel$), nm')
-        axs[i, 1].set_ylabel('Perpendicular error (Δ$\perp$), nm')
-        axs[i, 1].set_title(
-            f"{model_names[i]}\n"
-            f"θ = {inclination}°"
+        axs[i, j].set_xlabel('Parallel error (Δ$\parallel$), nm')
+        axs[i, j].set_ylabel('Perpendicular error (Δ$\perp$), nm')
+        axs[i, j].set_title(
+            f"{model_names[j]} \n θ = {inclination}°\n"
         )
         
         # Add colorbar
-        cbar = fig.colorbar(scatter, ax=axs[i, 1], pad=0.01)
-        cbar.set_label('Phi estimate')
+        cbar = fig.colorbar(scatter, ax=axs[i, j], pad=0.01)
+        cbar.set_label('Phi err')
         
         # Add a reference circle showing the IQR*5 boundary
         max_val = max(abs(filtered_para.max()), abs(filtered_para.min()), 
                       abs(filtered_perp.max()), abs(filtered_perp.min()))
-        axs[i, 1].set_xlim(-max_val*1.1, max_val*1.1)
-        axs[i, 1].set_ylim(-max_val*1.1, max_val*1.1)
+        axs[i, j].set_xlim(-max_val*1.1, max_val*1.1)
+        axs[i, j].set_ylim(-max_val*1.1, max_val*1.1)
         
         # Force aspect ratio to be 1:1
-        axs[i, 1].set_aspect('equal')
-        axs[i, 1].grid(True, linestyle='--', alpha=0.7)
-        axs[i, 1].axhline(y=0, color='gray', linestyle='-', alpha=0.5)
-        axs[i, 1].axvline(x=0, color='gray', linestyle='-', alpha=0.5)
+        axs[i, j].set_aspect('equal')
+        axs[i, j].grid(True, linestyle='--', alpha=0.7)
+        axs[i, j].axhline(y=0, color='gray', linestyle='-', alpha=0.5)
+        axs[i, j].axvline(x=0, color='gray', linestyle='-', alpha=0.5)
+   
 
-        # Add text labels showing az_est
-        for x, y, label in zip(filtered_para, filtered_perp, filtered_az_err):
-            axs[i, 1].text(x, y, f"{label:.0f}°", fontsize=6, ha='right', va='bottom', color='black', alpha=0.7)
-
-
-#    # -----------------------
-#    # Plot photon number error
-#    # -----------------------
-#    for i, dataset in enumerate(datasets):
-#        dataset_inc = dataset[np.abs(dataset['inc_tru'] - inclination) <= 5]
-#        IQR_multiplier = 5000
-#        
-#        # Get error data
-#        para_err = dataset_inc["para_err"]
-#        perp_err = dataset_inc["perp_err"]
-#        combined_err = np.sqrt(para_err**2 + perp_err**2)
-#        
-#        # IQR to remove outliers based on combined error
-#        Q1 = np.percentile(combined_err, 25)
-#        Q3 = np.percentile(combined_err, 75)
-#        IQR = Q3 - Q1
-#        lower_bound = Q1 - IQR_multiplier * IQR
-#        upper_bound = Q3 + IQR_multiplier * IQR
-#        
-#        # Filter data and calculate outlier percentage
-#        mask = (combined_err >= lower_bound) & (combined_err <= upper_bound)
-#        total_points = len(combined_err)
-#        outliers = total_points - np.sum(mask)
-#        outlier_percent = (outliers / total_points) * 100 if total_points > 0 else 0
-#        
-#        # Filter all relevant data using the mask
-#        filtered_para = para_err[mask]
-#        filtered_perp = perp_err[mask]
-#        filtered_az_err = dataset_inc["photon_est"][mask]  # Using az_err for coloring
-#        
-#        # Single scatter plot with para_err on x-axis and perp_err on y-axis
-#        scatter = axs[i, 2].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')
-#        
-#        # Add axis labels and title
-#        axs[i, 2].set_xlabel('Parallel error (Δ$\parallel$), nm')
-#        axs[i, 2].set_ylabel('Perpendicular error (Δ$\perp$), nm')
-#        axs[i, 2].set_title(
-#            f"{model_names[i]}\n"
-#            f"θ = {inclination}°"
-#        )
-#        
-#        # Add colorbar
-#        cbar = fig.colorbar(scatter, ax=axs[i, 2], pad=0.01)
-#        cbar.set_label('Photon estimate')
-#        
-#        # Add a reference circle showing the IQR*5 boundary
-#        max_val = max(abs(filtered_para.max()), abs(filtered_para.min()), 
-#                      abs(filtered_perp.max()), abs(filtered_perp.min()))
-#        axs[i, 2].set_xlim(-max_val*1.1, max_val*1.1)
-#        axs[i, 2].set_ylim(-max_val*1.1, max_val*1.1)
-#        
-#        # Force aspect ratio to be 1:1
-#        axs[i, 2].set_aspect('equal')
-#        axs[i, 2].grid(True, linestyle='--', alpha=0.7)
-#        axs[i, 2].axhline(y=0, color='gray', linestyle='-', alpha=0.5)
-#        axs[i, 2].axvline(x=0, color='gray', linestyle='-', alpha=0.5)
-#
-##        # Add text labels showing az_est
-##        for x, y, label in zip(filtered_para, filtered_perp, filtered_az_err):
-##            axs[i, 2].text(x, y, f"{label:.0f}", fontsize=6, ha='right', va='bottom', color='black', alpha=0.7)
-#
-#
-#
-#
 
 
     plt.tight_layout()
-    output_filename = f"cloud_inc{round(inclination)}.png"
+    output_filename = f"cloud_results_allinc.png"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
     plt.close()

@@ -20,4 +20,8 @@ function par = readParametersEstimate(psf)
 
     % Camera
     par.pixelSize = psf.pixelSize;
+
+    % dave apr 2025
+    par.nPixels = psf.nPixels;
+
 end
