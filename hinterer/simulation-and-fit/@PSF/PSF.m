@@ -94,7 +94,7 @@ classdef PSF
 
         function obj = createImage(obj)
             [obj.Defocus, obj.pupilMask, obj.chirpZTransform, obj.phaseMaskObj, obj.attenuationMaskObj] = obj.setup();
-            
+
             bfp = BackFocalPlane(obj);
             % bfp = BackFocalPlane_gaussian(obj); % dave feb 2025 - use if just want gaussian
             obj.backFocalPlane = bfp;
@@ -121,6 +121,7 @@ classdef PSF
             psf = applyShotNoise(obj, psf);
             psf = addBackgroundNoise(obj, psf);
             obj.image = psf;
+
         end
 
         function [Defocus, pupilMask, chirpZTransform, phaseMaskObj, attenuationObj] = setup(obj)

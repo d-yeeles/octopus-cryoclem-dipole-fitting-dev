@@ -7,6 +7,8 @@ import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.image as mpimg
 import subprocess
+import seaborn as sns
+
 
 def convert_lists_to_degrees(module, variable_names):
     for name in variable_names:
@@ -37,36 +39,31 @@ data_gaussian = pd.DataFrame(columns=[
     "y_tru",
     "inc_tru",
     "az_tru",
-    "para_tru",
-    "perp_tru",
     "x_est",
     "y_est",
     "inc_est",
     "az_est",
-    "para_est",
-    "perp_est",
     "x_err",
     "y_err",
     "inc_err",
     "az_err",
     "para_err",
     "perp_err",
-#    "obj_tru",
-#    "obj_est",
-#    "obj_err"
     "photon_tru",
     "photon_est",
-    "photon_err"
+    "photon_err",
+    "obj_est",
 ])
 
 data_hinterer = data_gaussian.copy()
 data_mortensen = data_gaussian.copy()
 
-datasets = [data_hinterer, data_mortensen]
-model_names = ['hinterer on mortensen', 'mortensen on hinterer']
+datasets = [data_gaussian, data_hinterer]
+model_names = ['hinterer', 'mortensen']
 file_paths = [
-    './fitting_results_hinterer_on_mortensen_68.py',
-    './fitting_results_mortensen_on_hinterer_68.py',
+    './fitting_results_mortensen_test_hardcoded.py',
+    './fitting_results_mortensen_test.py',
+#    './fitting_results_mortensen_test_runtime.py',
 ]
 
 
@@ -89,34 +86,26 @@ for i, dataset in enumerate(datasets):
                 "y_tru": module.y_tru,
                 "inc_tru": module.inc_tru,
                 "az_tru": module.az_tru,
-                "para_tru": compute_para_perp(np.array(module.x_tru), np.array(module.y_tru), module.az_tru)[0],
-                "perp_tru": compute_para_perp(np.array(module.x_tru), np.array(module.y_tru), module.az_tru)[1],
                 "x_est": module.x_est,
                 "y_est": module.y_est,
                 "inc_est": module.inc_est,
                 "az_est": module.az_est,
-                "para_est": compute_para_perp(np.array(module.x_est), np.array(module.y_est), module.az_tru)[0],
-                "perp_est": compute_para_perp(np.array(module.x_est), np.array(module.y_est), module.az_tru)[1],
                 "x_err": np.array(module.x_tru) - np.array(module.x_est),
                 "y_err": np.array(module.y_tru) - np.array(module.y_est),
                 "inc_err": np.array(module.inc_tru) - np.array(module.inc_est),
                 "az_err": np.array(module.az_tru) - np.array(module.az_est),
                 "para_err": compute_para_perp(np.array(module.x_tru) - np.array(module.x_est), np.array(module.y_tru) - np.array(module.y_est), module.az_tru)[0],
                 "perp_err": compute_para_perp(np.array(module.x_tru) - np.array(module.x_est), np.array(module.y_tru) - np.array(module.y_est), module.az_tru)[1],
-#                "obj_tru": module.obj_tru,
-#                "obj_est": module.obj_est,
-#                "obj_err": module.obj_err
                 "photon_tru": module.photon_tru,
                 "photon_est": module.photon_est,
-                "photon_err": np.array(module.photon_tru) - np.array(module.photon_est)
-
+                "photon_err": module.photon_err,
+                "obj_est": module.obj_est,
             })
 
         if dataset.empty:
             datasets[i] = newdata
         else:
             datasets[i] = pd.concat([dataset, newdata], ignore_index=True)
-
 
 
 
@@ -135,19 +124,24 @@ for dataset in datasets:
     dataset["az_err"] = np.mod(dataset["az_err"], 360)
     dataset["az_err"] = np.minimum(np.abs(dataset["az_err"]), 360 - np.abs(dataset["az_err"]))
 
+
+
+
 output_dir = './'
 
-# Azimuth plots
+import seaborn as sns
 
 # Generate plots for each fixed inclination
 for inclination in [68]:
    
     fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+
     for i, dataset in enumerate(datasets):
-        dataset_inc = dataset[np.abs(dataset['inc_tru'] - inclination) <= 5]
 
+        dataset_inc = dataset[abs(dataset['inc_tru'] - inclination) <= 5]
 
-        # with outliers
+        if dataset_inc.empty:
+          continue
 
         IQR_multiplier = 500000000000
         
@@ -175,7 +169,7 @@ for inclination in [68]:
         filtered_az_err = dataset_inc["inc_err"][mask]  # Using az_err for coloring
         
         # Single scatter plot with para_err on x-axis and perp_err on y-axis
-        scatter = axs[i, 0].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')#, vmin=0, vmax=90)
+        scatter = axs[i, 0].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')
 
 #        # Add text labels
 #        for j, (x, y, inc) in enumerate(zip(filtered_para, filtered_perp, filtered_az_err)):
@@ -194,11 +188,8 @@ for inclination in [68]:
         cbar = fig.colorbar(scatter, ax=axs[i, 0], pad=0.01)
         cbar.set_label('Theta error')
         
-        # Add a reference circle showing the IQR*5 boundary
-        max_val = max(abs(filtered_para.max()), abs(filtered_para.min()), 
-                      abs(filtered_perp.max()), abs(filtered_perp.min()))
-#        axs[i, 0].set_xlim(-60, 60)#(-max_val*1.1, max_val*1.1)
-#        axs[i, 0].set_ylim(-60, 60)#(-max_val*1.1, max_val*1.1)
+        axs[i, 0].set_xlim(-20, 20)
+        axs[i, 0].set_ylim(-20, 20)
         
         # Force aspect ratio to be 1:1
         axs[i, 0].set_aspect('equal')
@@ -208,16 +199,19 @@ for inclination in [68]:
 
 
 
-        # without outliers
 
-        #IQR_multiplier = 1.5
+
+
+
+
+
         IQR_multiplier = 500000000000
         
         # Get error data
         para_err = dataset_inc["para_err"]
         perp_err = dataset_inc["perp_err"]
         combined_err = np.sqrt(para_err**2 + perp_err**2)
-      
+        
         # IQR to remove outliers based on combined error
         Q1 = np.percentile(combined_err, 25)
         Q3 = np.percentile(combined_err, 75)
@@ -235,34 +229,43 @@ for inclination in [68]:
         filtered_para = para_err[mask]
         filtered_perp = perp_err[mask]
         filtered_az_err = dataset_inc["az_err"][mask]  # Using az_err for coloring
-
-        # Single scatter plot with para_err on x-axis and perp_err on y-axis
-        scatter = axs[i, 1].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')#, vmin=0, vmax=90)
         
+        # Single scatter plot with para_err on x-axis and perp_err on y-axis
+        scatter = axs[i, 1].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')
+
+#        # Add text labels
+#        for j, (x, y, inc) in enumerate(zip(filtered_para, filtered_perp, filtered_az_err)):
+#            # Round inc_est to 1 decimal place
+#            inc_label = f"{inc:.6f}"
+#            axs[i, 1].annotate(inc_label, (x, y), fontsize=6, color='black')
+ 
         # Add axis labels and title
         axs[i, 1].set_xlabel('Parallel error (Δ$\parallel$), nm')
         axs[i, 1].set_ylabel('Perpendicular error (Δ$\perp$), nm')
         axs[i, 1].set_title(
-            f"{model_names[i]}\nθ={inclination}°"#\nexclude points > {IQR_multiplier}× IQR from quartiles"
+            f"{model_names[i]}\nθ={inclination}°"
         )
         
         # Add colorbar
         cbar = fig.colorbar(scatter, ax=axs[i, 1], pad=0.01)
         cbar.set_label('Phi error')
         
-        # Add a reference circle showing the IQR*5 boundary
-        max_val = max(abs(filtered_para.max()), abs(filtered_para.min()), 
-                      abs(filtered_perp.max()), abs(filtered_perp.min()))
-#        axs[i, 1].set_xlim(-40, 40)#(-max_val*1.1, max_val*1.1)
-#        axs[i, 1].set_ylim(-40, 40)#(-max_val*1.1, max_val*1.1)
+        axs[i, 1].set_xlim(-20, 20)
+        axs[i, 1].set_ylim(-20, 20)
         
         # Force aspect ratio to be 1:1
         axs[i, 1].set_aspect('equal')
         axs[i, 1].grid(True, linestyle='--', alpha=0.7)
         axs[i, 1].axhline(y=0, color='gray', linestyle='-', alpha=0.5)
         axs[i, 1].axvline(x=0, color='gray', linestyle='-', alpha=0.5)
-    
+
+
+
+
+
+
     plt.tight_layout()
-    output_filename = f"cross_cloud_inc{round(inclination)}.png"
+    output_filename = f"testing_inc{round(inclination)}.png"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
     plt.close()
+

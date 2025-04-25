@@ -1,7 +1,14 @@
 function par = readParametersEstimate(psf)
 
+    % dave apr 2025 - add this so we can inherit the right params when
+    % fitting
     par.nPixels = psf.nPixels;
-    
+    par.pixelSize = psf.pixelSize;
+    par.wavelength = psf.wavelength;
+    par.objectiveNA = psf.objectiveNA;
+    par.pixelSensitivityMask = psf.pixelSensitivityMask;
+    par.nDiscretizationBFP = psf.nDiscretizationBFP;
+
     % Fluorophore
     par.shotNoise =  0; 
     par.reducedExcitation = 0;

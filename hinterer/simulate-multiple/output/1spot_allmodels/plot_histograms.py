@@ -49,22 +49,22 @@ data_gaussian = pd.DataFrame(columns=[
     "az_err",
     "para_err",
     "perp_err",
-    "photon__tru",
-    "photon__est",
-    "photon_err"
+    "photon_tru",
+    "photon_est",
+    "photon_err",
+    "obj_est",
 ])
 
 data_hinterer = data_gaussian.copy()
 data_mortensen = data_gaussian.copy()
 
 datasets = [data_gaussian, data_hinterer, data_mortensen]
-model_names = ['hinterer', 'hinterer', 'mortensen']
+model_names = ['gaussian on mortensen', 'hinterer on mortensen', 'mortensen on mortensen']
 file_paths = [
-    './fitting_results_hinterer.py',
-#    './fitting_results_mortensen.py',
-#    './fitting_results_mortensen_45_subpixel1_patch500.py',
-    './fitting_results_mortensen_45_subpixel9_1_patch500.py',
-    './fitting_results_mortensen_45_subpixel9_1E_patch500.py',
+#    './fitting_results_gaussian_on_hinterer_all.py',
+    './fitting_results_hinterer_on_mortensen_all.py',
+    './fitting_results_hinterer_on_mortensen_all.py',
+    './fitting_results_mortensen_on_mortensen_all.py',
 ]
 
 
@@ -99,7 +99,8 @@ for i, dataset in enumerate(datasets):
                 "perp_err": compute_para_perp(np.array(module.x_tru) - np.array(module.x_est), np.array(module.y_tru) - np.array(module.y_est), module.az_tru)[1],
                 "photon_tru": module.photon_tru,
                 "photon_est": module.photon_est,
-                "photon_err": module.photon_err
+                "photon_err": module.photon_err,
+                "obj_est": module.obj_est,
             })
 
         if dataset.empty:
@@ -132,9 +133,9 @@ output_dir = './'
 import seaborn as sns
 
 # Generate plots for each fixed inclination
-for inclination in [45]:
+for inclination in [0]:
    
-    fig, axs = plt.subplots(3, 5, figsize=(35, 15))
+    fig, axs = plt.subplots(3, 6, figsize=(40, 15))
 
     for i, dataset in enumerate(datasets):
 
@@ -156,10 +157,10 @@ for inclination in [45]:
         mean = np.mean(filtered_data)
         std = np.std(filtered_data, ddof=1)
         se = std / np.sqrt(np.size(filtered_data))
-        sns.histplot(filtered_data, ax=axs[i, 0], kde=True, fill=True, binwidth=2)
+        sns.histplot(filtered_data, ax=axs[i, 0], kde=True, fill=True, binwidth=1)
         axs[i, 0].axvline(mean, color=dred, linewidth=1)
         axs[i, 0].axvspan(mean - std, mean + std, color='red', alpha=0.1)
-#        axs[i, 0].set_xlim(-120, 120)
+        axs[i, 0].set_xlim(-20, 20)
         axs[i, 0].set_xlabel('Δ$\parallel$, nm')
         axs[i, 0].set_ylabel('Counts')
         axs[i, 0].set_title(f"{model_names[i]}\nParallel localisation residuals\n" 
@@ -179,7 +180,7 @@ for inclination in [45]:
         sns.histplot(filtered_data, ax=axs[i, 1], kde=True, fill=True, binwidth=1)
         axs[i, 1].axvline(mean, color=dred, linewidth=1)
         axs[i, 1].axvspan(mean - std, mean + std, color='red', alpha=0.1)
-#        axs[i, 1].set_xlim(-120, 120)
+        axs[i, 1].set_xlim(-20, 20)
         axs[i, 1].set_xlabel('Δ$\perp$, nm')
         axs[i, 1].set_ylabel('Counts')
         axs[i, 1].set_title(f"{model_names[i]}\nPerpendicular localisation residuals\n" 
@@ -225,30 +226,49 @@ for inclination in [45]:
         axs[i, 3].set_title(f"{model_names[i]}\nAzimuth residuals\n" 
                             f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}")
 
-#        data = dataset_inc["photon_err"]
-#        # IQR to remove outliers
-#        Q1 = np.percentile(data, 25)
-#        Q3 = np.percentile(data, 75)
-#        IQR = Q3 - Q1
-#        lower_bound = Q1 - IQR_multiplier * IQR
-#        upper_bound = Q3 + IQR_multiplier * IQR
-#        filtered_data = data[(data >= lower_bound) & (data <= upper_bound)]
-#        mean = np.mean(filtered_data)
-#        std = np.std(filtered_data)
-#        se = std / np.sqrt(np.size(filtered_data))
-#        sns.histplot(data=data, ax=axs[i, 4], kde=True, fill=True, binwidth=50)
-#        axs[i, 4].axvline(mean, color=dred, linewidth=1)
-#        axs[i, 4].axvspan(mean - std, mean + std, color='red', alpha=0.1)
-#        axs[i, 4].set_xlim([-220, 1220])
-#        axs[i, 4].set_xlabel('ΔN, °')
-#        axs[i, 4].set_ylabel('Counts')
-#        axs[i, 4].set_title(f"{model_names[i]}\nPhoton count residuals\n" 
-#                            f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}")
+        data = dataset_inc["photon_err"]
+        # IQR to remove outliers
+        Q1 = np.percentile(data, 25)
+        Q3 = np.percentile(data, 75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - IQR_multiplier * IQR
+        upper_bound = Q3 + IQR_multiplier * IQR
+        filtered_data = data[(data >= lower_bound) & (data <= upper_bound)]
+        mean = np.mean(filtered_data)
+        std = np.std(filtered_data)
+        se = std / np.sqrt(np.size(filtered_data))
+        sns.histplot(data=data, ax=axs[i, 4], kde=True, fill=True, binwidth=50)
+        axs[i, 4].axvline(mean, color=dred, linewidth=1)
+        axs[i, 4].axvspan(mean - std, mean + std, color='red', alpha=0.1)
+        axs[i, 4].set_xlim([-220, 1220])
+        axs[i, 4].set_xlabel('ΔN, °')
+        axs[i, 4].set_ylabel('Counts')
+        axs[i, 4].set_title(f"{model_names[i]}\nPhoton count residuals\n" 
+                            f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}")
 
+        data = dataset_inc["obj_est"]
+        # IQR to remove outliers
+        Q1 = np.percentile(data, 25)
+        Q3 = np.percentile(data, 75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - IQR_multiplier * IQR
+        upper_bound = Q3 + IQR_multiplier * IQR
+        filtered_data = data[(data >= lower_bound) & (data <= upper_bound)]
+        mean = np.mean(filtered_data)
+        std = np.std(filtered_data)
+        se = std / np.sqrt(np.size(filtered_data))
+        sns.histplot(data=data, ax=axs[i, 5], kde=True, fill=True, binwidth=100)
+        axs[i, 5].axvline(mean, color=dred, linewidth=1)
+        axs[i, 5].axvspan(mean - std, mean + std, color='red', alpha=0.1)
+        axs[i, 5].set_xlim([0, 15000])
+        axs[i, 5].set_xlabel('Log-likelihood, °')
+        axs[i, 5].set_ylabel('Counts')
+        axs[i, 5].set_title(f"{model_names[i]}\nLog-likelihood\n" 
+                            f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}")
 
 
     plt.tight_layout()
-    output_filename = f"kde_filtered_plots_inc{round(inclination)}.png"
+    output_filename = f"histograms_hinterer_inc{round(inclination)}.png"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
     plt.close()
 

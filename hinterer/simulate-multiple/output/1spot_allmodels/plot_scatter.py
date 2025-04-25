@@ -7,6 +7,7 @@ import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.image as mpimg
 import subprocess
+import seaborn as sns
 
 
 def convert_lists_to_degrees(module, variable_names):
@@ -48,22 +49,22 @@ data_gaussian = pd.DataFrame(columns=[
     "az_err",
     "para_err",
     "perp_err",
-    "photon__tru",
-    "photon__est",
-    "photon_err"
-
+    "photon_tru",
+    "photon_est",
+    "photon_err",
+    "obj_est",
 ])
 
 data_hinterer = data_gaussian.copy()
 data_mortensen = data_gaussian.copy()
 
 datasets = [data_gaussian, data_hinterer, data_mortensen]
-model_names = ['gaussian lowN photons', 'hinterer lowN photons', 'mortensen lowN photons']
-module_names = ['gaussian', 'hinterer', 'mortensen']
+model_names = ['gaussian on mortensen', 'hinterer on mortensen', 'mortensen on mortensen']
 file_paths = [
-    '../../../1spot_finaltest/background0/fitting_results_gaussian_lowN.py',
-    '../../../1spot_finaltest/background0/fitting_results_hinterer_lowN.py',
-    '../../../../../../mortensen/with_subpixel_averaging/fitting_results_mortensen_best.py'
+#    './fitting_results_gaussian_on_hinterer_all.py',
+    './fitting_results_hinterer_on_mortensen_all.py',
+    './fitting_results_hinterer_on_mortensen_all.py',
+    './fitting_results_mortensen_on_mortensen_all.py',
 ]
 
 
@@ -77,7 +78,7 @@ for i, dataset in enumerate(datasets):
 
     if os.path.exists(file_path):
 
-        spec = importlib.util.spec_from_file_location(module_names[i], file_path)
+        spec = importlib.util.spec_from_file_location(model_names[i], file_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
@@ -98,15 +99,14 @@ for i, dataset in enumerate(datasets):
                 "perp_err": compute_para_perp(np.array(module.x_tru) - np.array(module.x_est), np.array(module.y_tru) - np.array(module.y_est), module.az_tru)[1],
                 "photon_tru": module.photon_tru,
                 "photon_est": module.photon_est,
-                "photon_err": module.photon_err
-
+                "photon_err": module.photon_err,
+                "obj_est": module.obj_est,
             })
 
         if dataset.empty:
             datasets[i] = newdata
         else:
             datasets[i] = pd.concat([dataset, newdata], ignore_index=True)
-
 
 
 
@@ -125,20 +125,26 @@ for dataset in datasets:
     dataset["az_err"] = np.mod(dataset["az_err"], 360)
     dataset["az_err"] = np.minimum(np.abs(dataset["az_err"]), 360 - np.abs(dataset["az_err"]))
 
-output_dir = './sparse_theta/'
 
-# Azimuth plots
+
+
+output_dir = './'
+
+import seaborn as sns
 
 # Generate plots for each fixed inclination
-for inclination in [0, 23, 45, 68, 90]:
+for inclination in [0]:
    
-    fig, axs = plt.subplots(3, 5, figsize=(35, 15))
+    fig, axs = plt.subplots(3, 6, figsize=(40, 15))
 
     for i, dataset in enumerate(datasets):
 
-        dataset_inc = dataset[np.abs(dataset['inc_tru'] - inclination) <= 5]
+        dataset_inc = dataset[abs(dataset['inc_tru'] - inclination) <= 5]
 
-        IQR_multiplier = 500000000000000
+        if dataset_inc.empty:
+          continue
+
+        IQR_multiplier = 500000000
 
         data = dataset_inc["para_err"]
         # IQR to remove outliers
@@ -155,7 +161,7 @@ for inclination in [0, 23, 45, 68, 90]:
         axs[i, 0].scatter(filtered_az, filtered_data, s=2)
         axs[i, 0].axhline(mean, color=dred, linewidth=1)
         axs[i, 0].fill_between(np.linspace(0, 360), mean-abs(std), mean+abs(std), color='red', alpha=0.1)
-        axs[i, 0].set_ylim(-45, 45)
+        axs[i, 0].set_ylim(-20, 20)
         axs[i, 0].set_xlabel('$\phi$, °')
         axs[i, 0].set_ylabel('Δ$\parallel$, nm')
         axs[i, 0].set_title(
@@ -179,7 +185,7 @@ for inclination in [0, 23, 45, 68, 90]:
         axs[i, 1].scatter(filtered_az, filtered_data, s=2)
         axs[i, 1].axhline(mean, color=dred, linewidth=1)#, label=f'μ = {mean:.2f}\nσ = {std:.2f}')
         axs[i, 1].fill_between(np.linspace(0, 360), mean-abs(std), mean+abs(std), color='red', alpha=0.1)
-        axs[i, 1].set_ylim(-15, 15)
+        axs[i, 1].set_ylim(-20, 20)
         axs[i, 1].set_xlabel('$\phi$, °')
         axs[i, 1].set_ylabel('Δ$\perp$, nm')
         axs[i, 1].set_title(
@@ -259,11 +265,32 @@ for inclination in [0, 23, 45, 68, 90]:
             f"{model_names[i]}\nPhoton count residuals\n"
             f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}"
         )
-        #axs[i, 3].legend(loc='upper right')
+
+        data = dataset_inc["obj_est"]
+        # IQR to remove outliers
+        Q1 = np.percentile(data, 25)
+        Q3 = np.percentile(data, 75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - IQR_multiplier * IQR
+        upper_bound = Q3 + IQR_multiplier * IQR
+        filtered_data = data[(data >= lower_bound) & (data <= upper_bound)]
+        filtered_az = dataset_inc["az_tru"][(data >= lower_bound) & (data <= upper_bound)]
+        mean = np.mean(filtered_data)
+        std = np.std(filtered_data)
+        se = std / np.sqrt(np.size(filtered_data))
+        axs[i, 5].scatter(filtered_az, filtered_data, s=2)
+        axs[i, 5].axhline(mean, color=dred, linewidth=1)#, label=f'μ = {mean:.2f}\nσ = {std:.2f}')
+        axs[i, 5].fill_between(np.linspace(0, 360), mean-abs(std), mean+abs(std), color='red', alpha=0.1)
+        axs[i, 5].set_ylim(0, 15000)
+        axs[i, 5].set_xlabel('$\phi$, °')
+        axs[i, 5].set_ylabel('log-likelihood')
+        axs[i, 5].set_title(
+            f"{model_names[i]}\nLog-likelihood\n"
+            f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}"
+        )
 
     plt.tight_layout()
-    #plt.show()
-    output_filename = f"scatter_filtered_plots_inc{round(inclination)}.png"
+    output_filename = f"scatter_hinterer_inc{round(inclination)}.png"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
-    plt.close()  
+    plt.close()
 

@@ -153,7 +153,7 @@ classdef PSF_mortensen
             psf = applyShotNoise(obj, psf);
             psf = addBackgroundNoise(obj, psf);
             obj.image = psf;
-            % disp(psf)
+
         end
 
         function [Defocus, pupilMask, chirpZTransform, phaseMaskObj, attenuationObj] = setup(obj)

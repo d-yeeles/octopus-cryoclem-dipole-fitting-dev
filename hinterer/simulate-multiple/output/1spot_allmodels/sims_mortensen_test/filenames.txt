@@ -28,4 +28,3 @@ sim_frame000027.tif
 sim_frame000028.tif
 sim_frame000029.tif
 sim_frame000030.tif
-sim_frame000031.tif

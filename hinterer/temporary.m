@@ -1,7 +1,14 @@
+%% ----------------------------------------------------------------------
+%% HoM
+%% ----------------------------------------------------------------------
+
+%% Thunderstorm patch version
+
+
 %% Fitting multiple PSFs in a single frame
 
-% Same as looop-test/fit_multiple.m, but feeding it the known simulated
-% positions rather than using thunderstorm to estimate them.
+% Same as loop-test/fit_multiple.m, but feeding it the known simulated
+% positions rather than using thunderstorm to estimate thpem.
 
 close all;
 clear all;
@@ -9,207 +16,381 @@ clear all;
 addpath(genpath('../'));
 
 %% ----------
-%% Simulate
+%% Fit
 %% ----------
 
-model = 'hinterer';
+% Input params
+stack_dir = "/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_mortensen_test/";
+stack_path = stack_dir + "sim_stack.tif";
 
-inclinations = 0:22.5*(pi/180):pi/2;%0:22.5*pi/180:pi/2;
-azimuths = 0:1*(pi/180):2*pi-1*(pi/180);%0:4*pi/180:2*pi;
-runs = 1:1;
+% Output file
+fitting_results_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/fitting_results_mortensen_test.py';
 
-% Global params - these will be the same whether sim or fit
+% Model to use
+model = 'mortensen';
 
-number_of_spots = 1;
-scalefactor = 1;
-padding = 0.15; % for avoiding edges
-inner_bound = padding;
-outer_bound = 1 - 2*padding;
-pixel_size_nm = 52/scalefactor;
-image_size_nm = sqrt(number_of_spots)*1000;%image_size_px*pixel_size_nm; % if arranged in NxN grid, allow 1000 nm per spot
-image_size_px = roundToOdd(image_size_nm/pixel_size_nm);%roundToOdd(201);%101*scalefactor); % must be odd
+% Pull out info about image stack
+stack_info = imfinfo(stack_path);
+image_width_px = stack_info(1).Width;
+image_height_px = stack_info(1).Height;
+number_of_frames = numel(stack_info);
 
-% Attocube params
-wavelength = 500;
-objectiveFocalLength = 770;
-par.nPixels = image_size_px;
-par.wavelength = Length(wavelength,'nm');
-par.objectiveNA = 2.17;
-par.objectiveFocalLength = Length(objectiveFocalLength,'mu');
-par.refractiveIndices = [1.31 2.17 2.17]; % [RI_specimen, RI_intermed, RI_immoil]
-par.nDiscretizationBFP = 129;%129; % change to like 501 or 1001 to make the ground truth dots line up better with the image
-par.pixelSize = Length(pixel_size_nm,'nm');
-par.pixelSensitivityMask = PixelSensitivity.uniform(9);
-backgroundNoise = 0; % taken from looking at blank bit of example data
-par.nPhotons = 2000;%1e10; % number of photons per spot - remember the image is made up by superimposing loads of individual images
+% Locate all the images and settings files in the dir
+files = dir(fullfile(stack_dir, '*.m')); % Use pattern matching
+settings_paths = {};
+for i = 1:length(files)
+    settings_paths{end+1} = fullfile(stack_dir, files(i).name);
+end
 
-counter = 0;
+% Sort the paths based on frame numbers
+frame_numbers = zeros(length(settings_paths), 1);
+for i = 1:length(settings_paths)
+    [~, name, ~] = fileparts(settings_paths{i});
+    % Extract the number after 'params_frame'
+    frame_number = str2double(regexp(name, 'params_frame(\d+)', 'tokens', 'once'));
+    % frame_number = str2double(regexp(name, 'params_(\d+)', 'tokens', 'once'));
+    frame_numbers(i) = frame_number;
+end
 
-% Loop over a bunch of random orientations, positions, photon counts
-for run = 1:length(runs)
+% Sort paths based on frame numbers
+[~, idx] = sort(frame_numbers);
+settings_paths = settings_paths(idx);
 
-    for inclination_index = 1:length(inclinations)
+% % Read in thunderstorm localisations
+% thunderstorm_results = readtable(thunderstorm_results_path, 'VariableNamingRule', 'preserve');
+% 
+% % Extract the required columns
+% thunderstorm_frame_array = thunderstorm_results.("frame");
+% thunderstorm_x_array = thunderstorm_results.("x [nm]");
+% thunderstorm_y_array = thunderstorm_results.("y [nm]");
 
-        for azimuth_index = 1:length(azimuths)
+% Loop over each image path and process
 
-            counter = counter + 1;
+% Loop over each frame in stack
+for frame_index = 1:number_of_frames
 
-            inclination = inclinations(inclination_index);
-            azimuth = azimuths(azimuth_index);
+    tic; % timing each frame
 
-            inclination_deg = inclination*180/pi;
-            azimuth_deg = azimuth*180/pi;
+    fprintf('----------\n');
+    fprintf('FRAME %d/%d\n', frame_index, number_of_frames);
+    settings_path = settings_paths{frame_index};
 
-            fprintf('Running inc=%.2f az=%.2f\n', inclination_deg, azimuth_deg);
+    % Read in parameters/settings if using simulated to get ground truth
+    evalc('run(settings_path)');
+    % % Will need to put in manually if not using simulated:
+    % pixel_size_nm = 52;
+    % par.wavelength = Length(500,'nm');
+    % par.pixelSize = Length(52,'nm');
+    % par.objectiveNA = 2.17;
+    % par.objectiveFocalLength = Length(770,'mu');
+    % par.refractiveIndices = [1.31, 2.17, 2.17];
+    % par.nDiscretizationBFP = 129;
+    % par.backgroundNoise = 0;
+    % par.nPhotons = 2000;
+    % par.pixelSensitivityMask = PixelSensitivity.uniform(9);
 
-            % output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer_68/sim_theta%03i_phi%03i_run%i.tif', ceil(inclination_deg), ceil(azimuth_deg), round(run));
-            % data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer_68/params_theta%03i_phi%03i_run%i.m', ceil(inclination_deg), ceil(azimuth_deg), round(run));
-            output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer/sim_frame%i.tif', round(counter));
-            data_output_path = sprintf('/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer/params_frame%i.m', round(counter));
+    patch_width_nm = 988; % size of patch around blob to consider
+    patch_width_px = patch_width_nm/pixel_size_nm;
+    patch_width_px = 2*floor(patch_width_px/2) + 1; % This enforces odd number of pixels, as required by Hinterer
 
-            % Need this for checking distance from neighbours
-            positionX_nm_array = [];
-            positionY_nm_array = [];
-            angleInclination_array = [];
-            angleAzimuth_array = [];
+    par.nPixels = patch_width_px;
 
-            tic;
+    image_width_nm = image_width_px*pixel_size_nm;
+    image_height_nm = image_height_px*pixel_size_nm;
 
-            for i = 1:number_of_spots
+    % Load frame
+    psf_image = imread(stack_path, frame_index);
+    psf_image = double(psf_image); % Convert to double for calculations
 
-            %     % use this if want no overlaps
-            %     min_distance_nm = 1000;
-            %     valid_position = false;
-            % 
-            %     while ~valid_position
-            % 
-            %         % Generate a random position avoiding edges
-            %         relative_x = inner_bound + outer_bound * rand();
-            %         relative_y = inner_bound + outer_bound * rand();
-            % 
-            %         % Convert to nm position
-            %         positionX_nm = (relative_x - 0.5) * image_size_nm;
-            %         positionY_nm = (relative_y - 0.5) * image_size_nm;
-            % 
-            %         % Check distance from all existing spots
-            %         if isempty(positionX_nm_array)
-            %             valid_position = true; % First spot is always valid
-            %         else
-            %             distances = sqrt((positionX_nm_array - positionX_nm).^2 + ...
-            %                              (positionY_nm_array - positionY_nm).^2);
-            %             if all(distances >= min_distance_nm)
-            %                 valid_position = true;
-            %             end
-            %         end
-            % 
-            %     end
+    % % Take thunderstorm results for that frame
+    % % Note: thunderstorm origin is top-left corner, so need to adjust to centre
+    % current_frame_mask = thunderstorm_frame_array == frame_index;
+    % current_frame_x_array = thunderstorm_x_array(current_frame_mask) - image_width_nm/2;
+    % current_frame_y_array = -(thunderstorm_y_array(current_frame_mask) - image_height_nm/2);
 
-                % use this if just want random positions
-                positionX_nm = 0;%-pixel_size_nm/2 + rand*pixel_size_nm;
-                positionY_nm = 0;%-pixel_size_nm/2 + rand*pixel_size_nm;
+    % % Clip values just if want to display
+    % display_image = (psf_image - min(psf_image(:))) / (max(psf_image(:)) - min(psf_image(:)));
+    % imshow(display_image)
 
-                angleInclination = inclination;%pi*rand;%(i-1)*(pi/2)/number_of_spots;%pi*rand; % symmetric about pi/2
-                angleAzimuth = azimuth;%2*pi*rand;%0; % doesn't affect anything
+    % Loop over each blob in a frame,
+    % cropping out each blob
+    % and running the fit on the cropped image
 
-                par.position = Length([positionX_nm positionY_nm 0], 'nm'); % This is nm away from centre of image
-                par.dipole = Dipole(angleInclination, angleAzimuth);
+    for blob_index = 1:length(positionX_nm_array)
 
-                % no noise for each spot that we're adding on top of each
-                % other, then put noise in the final one
+        fprintf(' ∘ Blob %d/%d\n', blob_index, length(positionX_nm_array));
 
-                if i == number_of_spots
-                    par.backgroundNoise = backgroundNoise;
-                    par.shotNoise = 1;
-                else 
-                    par.backgroundNoise = 0;
-                    par.shotNoise = 0;
-                end
+        patch_centre_x_nm = positionX_nm_array(blob_index);% + (rand - 0.5) * 200; % this is simulating some other blob-finding result
+        patch_centre_y_nm = positionY_nm_array(blob_index);% + (rand - 0.5) * 200;
 
-                % psf = PSF(par);
-                if strcmpi(model, 'hinterer')
-                    psf = PSF(par);
-                elseif strcmpi(model, 'mortensen')
-                    psf = PSF_mortensen(par);
-                else
-                    error('Unknown model type: %s', model);
-                end
+        patch_centre_x_px = nm_to_px(patch_centre_x_nm, pixel_size_nm, image_width_px, 'x');
+        patch_centre_y_px = nm_to_px(patch_centre_y_nm, pixel_size_nm, image_height_px, 'y');
 
-                % if first iteration, use this psf image
-                % later loops just add to this image
-                if i == 1
-                    psf_total_image = psf.image;
-                else
-                    psf_total_image = psf_total_image + psf.image;
-                end
+        % Calculate patch size in pixels (ensure odd number for centered patch)
+        patch_width_px = floor(patch_width_nm / pixel_size_nm);
+        if mod(patch_width_px, 2) == 0
+            patch_width_px = patch_width_px + 1; % Ensure odd number
+        end
 
-            positionX_nm_array(end+1) = positionX_nm;
-            positionY_nm_array(end+1) = positionY_nm;
-            angleInclination_array(end+1) = angleInclination;
-            angleAzimuth_array(end+1) = angleAzimuth;
+        % Half width for calculations (integer division)
+        half_width = floor(patch_width_px / 2);
 
-            end % end loop over blobs
+        % Get image dimensions
+        [image_height, image_width] = size(psf_image);
 
-            elapsed_time = toc;
-            fprintf('    Generated frame in %.2f seconds\n', elapsed_time);
+        % First calculate the integer patch boundaries that ensure the patch stays within image
+        patch_start_x_px = max(1, floor(patch_centre_x_px - half_width));
+        patch_start_y_px = max(1, floor(patch_centre_y_px - half_width));
+        patch_end_x_px = min(image_width, patch_start_x_px + patch_width_px - 1);
+        patch_end_y_px = min(image_height, patch_start_y_px + patch_width_px - 1);
+        
+        % Adjust patch start if necessary to maintain constant patch size
+        if (patch_end_x_px - patch_start_x_px + 1) < patch_width_px
+            patch_start_x_px = max(1, patch_end_x_px - patch_width_px + 1);
+        end
+        if (patch_end_y_px - patch_start_y_px + 1) < patch_width_px
+            patch_start_y_px = max(1, patch_end_y_px - patch_width_px + 1);
+        end
+        
+        % Extract patch from image
+        patch_indices_x = patch_start_x_px:patch_end_x_px;
+        patch_indices_y = patch_start_y_px:patch_end_y_px;
+        patch_psf_image = psf_image(patch_indices_y, patch_indices_x);
+        
+        % Get actual patch dimensions after boundary checking
+        actual_patch_width_px = patch_end_x_px - patch_start_x_px + 1;
+        actual_patch_height_px = patch_end_y_px - patch_start_y_px + 1;
+        
+        % Calculate ACTUAL center of patch in pixel coordinates
+        actual_patch_center_x_px = patch_start_x_px + (actual_patch_width_px - 1)/2;
+        actual_patch_center_y_px = patch_start_y_px + (actual_patch_height_px - 1)/2;
+        
+        % Convert ACTUAL patch center to physical coordinates
+        actual_patch_center_x_nm = px_to_nm(actual_patch_center_x_px, pixel_size_nm, image_width_px, 'x');
+        actual_patch_center_y_nm = px_to_nm(actual_patch_center_y_px, pixel_size_nm, image_height_px, 'y');
+        
+        % Calculate expected position relative to patch center
+        expected_offset_x = patch_centre_x_nm - actual_patch_center_x_nm;
+        expected_offset_y = patch_centre_y_nm - actual_patch_center_y_nm;
 
-            % % Output as png
-            % psf_total_image = uint32(psf_total_image);
-            % display_image = double(psf_total_image); % Convert to double for calculations
-            % display_image = (display_image - min(display_image(:))) / (max(display_image(:)) - min(display_image(:)));
-            % imwrite(display_image, output_path);
+        % Setup PSF object for fitting
+        par.position = Length([0 0 0], 'nm');
+        % psfInit = PSF(par);
+        if strcmpi(model, 'hinterer')
+            psfInit = PSF(par);
+        elseif strcmpi(model, 'mortensen')
+            psfInit = PSF_mortensen(par);
+        elseif strcmpi(model, 'gaussian')
+            psfInit = PSF_gaussian(par);
+        else
+            error('Unknown model type: %s', model);
+        end
 
-            % Output as tif
-            psf_total_image = uint32(psf_total_image);
-            t = Tiff(output_path, 'w');
-            tagstruct.ImageLength = image_size_px;  % Set image height
-            tagstruct.ImageWidth = image_size_px;   % Set image width
-            tagstruct.Photometric = Tiff.Photometric.MinIsBlack;  % Grayscale
-            tagstruct.BitsPerSample = 32;  % 16-bit per pixel (or 32-bit if needed)
-            tagstruct.SamplesPerPixel = 1;  % Grayscale (1 channel)
-            tagstruct.RowsPerStrip = 16;   % Strip length for compression
-            tagstruct.Compression = Tiff.Compression.LZW;  % Lossless compression (optional)
-            tagstruct.Software = 'MATLAB';
-            t.setTag(tagstruct);
-            t.write(psf_total_image);
-            t.close();
+        psfInit.image = patch_psf_image;
+        psfInit.nPixels = length(patch_psf_image);
 
-            % % Output as csv
-            % % writematrix(psf_total_image, output_path);
-            % writematrix(flipud(fliplr(psf_total_image)), output_path); % rotate upside-down to match Mortensen phi definition
+        % % If not masking or cropping, use this
+        % % Generate throwaway PSF object, replace the image with our image
+        % par.position = Length([0 0 0], 'nm');
+        % psfInit = PSF(par);
+        % psfInit.image = psf_image;
 
-            % % Clip values just for display
-            % display_image = imread(output_path);
-            % display_image = double(display_image); % Convert to double for calculations
-            % display_image = (display_image - min(display_image(:))) / (max(display_image(:)) - min(display_image(:)));
-            % imshow(display_image)
+        % Run the fit - given nothing, fmincon - reparameterised
 
-            fprintf('Simulation output to \n %s\n', output_path);
+        % Give it a background noise estimate (let's say you know it to within 10%)
+        if psfInit.backgroundNoise > 1e-5
+            parEst.noiseEstimate = psfInit.backgroundNoise;% * (1 + 0.2 * (rand() - 0.5)); % that additional bit to simulate not knowing it exactly. Will need to change this becaue won't know this for real data
+        else
+            parEst.noiseEstimate = 1e-5;% * (1 + 0.2 * (rand() - 0.5)); % that additional bit to simulate not knowing it exactly
+        end
 
-            % Save ground truth info
+        parEst.parameterBounds.x = Length([-patch_width_nm/2 patch_width_nm/2], 'nm');
+        parEst.parameterBounds.y = Length([-patch_width_nm/2 patch_width_nm/2], 'nm');
+        parEst.parameterBounds.defocus = Length([-10 10], 'nm');
+        parEst.parameterBounds.newangle1 = [-1, 1];
+        parEst.parameterBounds.newangle2 = [-1, 1];
+        parEst.parameterBounds.newangle3 = [0, 1];
 
-            fileID = fopen(data_output_path, 'w');
-            fprintf(fileID, '%% ground truth for sim_inc%i_az%i_run%i.tif\n', round(inclination_deg), round(azimuth_deg), round(run));
-            fprintf(fileID, '%% settings\n');
-            fprintf(fileID, 'number_of_spots = %i\n', number_of_spots);
-            fprintf(fileID, 'pixel_size_nm = %.3f\n', pixel_size_nm);
-            fprintf(fileID, 'image_size_nm = %.3f\n', image_size_nm);
-            fprintf(fileID, 'image_size_px = %i\n', image_size_px);
-            fprintf(fileID, 'wavelength = %i\n', wavelength);
-            fprintf(fileID, 'par.objectiveNA = %.2f\n', par.objectiveNA);
-            fprintf(fileID, 'objectiveFocalLength = %i\n', objectiveFocalLength);
-            fprintf(fileID, 'par.refractiveIndices = [%s]\n', num2str(par.refractiveIndices, ' %d ,'));
-            fprintf(fileID, 'par.nDiscretizationBFP = %i\n', par.nDiscretizationBFP);
-            fprintf(fileID, 'par.backgroundNoise = %.3f\n', par.backgroundNoise);
-            fprintf(fileID, 'par.nPhotons = %i\n', par.nPhotons);
-            fprintf(fileID, '% data\n');
-            fprintf(fileID, 'positionX_nm_array = [%s]\n', num2str(positionX_nm_array, ' %d ,'));
-            fprintf(fileID, 'positionY_nm_array = [%s]\n', num2str(positionY_nm_array, ' %d ,'));
-            fprintf(fileID, 'angleInclination_array = [%s]\n', num2str(angleInclination_array, ' %d ,'));
-            fprintf(fileID, 'angleAzimuth_array = [%s]\n', num2str(angleAzimuth_array, ' %d ,'));
-            fclose(fileID);
+        % Give patch centre as initial value. Add some fake noise to
+        % simulate imperfect feature detection.
+        parEst.parameterStartValues.x = Length(expected_offset_x + (0 + 200 * (rand() - 0.5)), 'nm'); % Because by definition it will be in/near centre of patch
+        parEst.parameterStartValues.y = Length(expected_offset_y + (0 + 200 * (rand() - 0.5)), 'nm');
+        parEst.parameterStartValues.defocus = Length(0, 'nm');
+        parEst.parameterStartValues.newangle1 = 2*rand()-0.5;
+        parEst.parameterStartValues.newangle2 = 2*(rand()-0.5);
+        parEst.parameterStartValues.newangle3 = rand();
 
-        end % end loop over azimuths
+        % Now optimising over photon count too
+        photon_number = par.nPhotons;
+        photon_estimate = round(sum(sum(psfInit.image - parEst.noiseEstimate)));
+        parEst.parameterStartValues.photons = photon_estimate;
+        parEst.parameterBounds.photons = [photon_estimate*0.5, photon_estimate*1.5];%photon_number + photon_number*0.1]; % true value +/- 10%
+        clear par.nPhotons; % Don't let it know number of photons in advance
 
-    end % end loop over inclinations
+        fitResult = FitPSF_ML_reparam2(psfInit, parEst, model);
 
-end % end loop over runs
+        angleInclination_estimate = acos(fitResult.estimatesPositionDefocus.ML(6));
+        angleAzimuth_estimate = atan2(fitResult.estimatesPositionDefocus.ML(5), fitResult.estimatesPositionDefocus.ML(4));
+        angleInclination_estimate = mod(angleInclination_estimate, pi/2);
+        angleAzimuth_estimate = mod(angleAzimuth_estimate, 2*pi);
+
+        positionX_nm_estimate = fitResult.estimatesPositionDefocus.ML(1) + actual_patch_center_x_nm; % Convert back to global position
+        positionY_nm_estimate = fitResult.estimatesPositionDefocus.ML(2) + actual_patch_center_y_nm; % Convert back to global position
+        photons_fit_estimate = fitResult.estimatesPositionDefocus.ML(7);
+        objective_function_estimate = fitResult.estimatesPositionDefocus.ML(8);
+
+        % Finding errors in the simulated data is a bit more complicated
+        % because of things like multiple detections etc.
+        % so for each localisation, find nearest ground truth to the
+        % current patch and pick the smallest one. good enough for now.
+
+        % % Find index of closest blob to patch centre and use that as ground truth
+        % distances_to_ground_truth = sqrt((positionX_nm_array - actual_patch_center_x_nm).^2 + (positionY_nm_array - actual_patch_center_y_nm).^2);
+        % [min_distance, min_index] = min(distances_to_ground_truth);
+
+        % Use this nearest blob as ground truth for this localisation
+        positionX_nm_true = positionX_nm_array(blob_index);
+        positionY_nm_true = positionY_nm_array(blob_index);
+        angleInclination_true = angleInclination_array(blob_index);
+        angleAzimuth_true = angleAzimuth_array(blob_index);
+        photons_true = photon_estimate;
+
+        positionX_nm_error = positionX_nm_true - positionX_nm_estimate;
+        positionY_nm_error = positionY_nm_true - positionY_nm_estimate;
+        angleInclination_error = angleInclination_true - angleInclination_estimate;
+        angleAzimuth_error = angleAzimuth_true - angleAzimuth_estimate;
+        photons_error = photons_true - photons_fit_estimate;
+
+        % Append results for each blob to an array for this frame
+        positionX_nm_trues_frame(blob_index) = positionX_nm_true;
+        positionY_nm_trues_frame(blob_index) = positionY_nm_true;
+        angleInclination_trues_frame(blob_index) = angleInclination_true;
+        angleAzimuth_trues_frame(blob_index) = angleAzimuth_true;
+        photons_trues_frame(blob_index) = photons_true;
+
+        positionX_nm_estimates_frame(blob_index) = positionX_nm_estimate;
+        positionY_nm_estimates_frame(blob_index) = positionY_nm_estimate;
+        angleInclination_estimates_frame(blob_index) = angleInclination_estimate;
+        angleAzimuth_estimates_frame(blob_index) = angleAzimuth_estimate;
+        photons_estimates_frame(blob_index) = photons_fit_estimate;
+
+        positionX_nm_errors_frame(blob_index) = positionX_nm_error;
+        positionY_nm_errors_frame(blob_index) = positionY_nm_error;
+        angleInclination_errors_frame(blob_index) = angleInclination_error;
+        angleAzimuth_errors_frame(blob_index) = angleAzimuth_error;
+        photons_errors_frame(blob_index) = photons_error;
+        objective_function_estimates_frame(blob_index) = objective_function_estimate;
+
+        % % This will create and save a plot for each patch showing the true and estimated positions
+        % 
+        % % Create figure
+        % figure('Position', [100, 100, 600, 500]);
+        % 
+        % % Display the patch image
+        % imagesc(patch_psf_image);
+        % colormap('hot'); % Use a colormap that makes the PSF visible
+        % axis equal tight;
+        % title(sprintf('Frame %d, Blob %d', frame_index, blob_index));
+        % colorbar;
+        % 
+        % % Convert the estimated position from local nm to local pixel coordinates
+        % % Note: patch is centered at (half_width+1, half_width+1) in local coordinates
+        % local_est_x_px = half_width + 1 + fitResult.estimatesPositionDefocus.ML(1) / pixel_size_nm;
+        % local_est_y_px = half_width + 1 + fitResult.estimatesPositionDefocus.ML(2) / pixel_size_nm;
+        % 
+        % % Ground truth should be at the center of the patch (approximately)
+        % local_gt_x_px = half_width + 1;  % Center of patch
+        % local_gt_y_px = half_width + 1;  % Center of patch
+        % 
+        % hold on;
+        % 
+        % % Plot true position with a green cross
+        % plot(local_gt_x_px, local_gt_y_px, 'g+', 'MarkerSize', 12, 'LineWidth', 2);
+        % 
+        % % Plot estimated position with a red circle
+        % plot(local_est_x_px, local_est_y_px, 'ro', 'MarkerSize', 10, 'LineWidth', 2);
+        % 
+        % % Add legend
+        % legend('Ground Truth', 'Estimate', 'Location', 'Best');
+        % 
+        % % Save the figure to the run directory
+        % output_filename = sprintf('psf_patch_f%d_b%d.png', frame_index, blob_index);
+        % saveas(gcf, fullfile(stack_dir, output_filename));
+        % fprintf('Saved visualization to: %s\n', fullfile(stack_dir, output_filename));
+        % 
+        % % Close the figure
+        % close;
+
+    end % end loop over blobs
+
+    % Append results for each frame to an array for this whole thing
+
+    positionX_nm_trues{frame_index} = positionX_nm_trues_frame;
+    positionY_nm_trues{frame_index} = positionY_nm_trues_frame;
+    angleInclination_trues{frame_index} = angleInclination_trues_frame;
+    angleAzimuth_trues{frame_index} = angleAzimuth_trues_frame;
+    photons_trues{frame_index} = photons_trues_frame;%photon_number * ones(size(angleAzimuth_array));
+
+    positionX_nm_estimates{frame_index} = positionX_nm_estimates_frame;
+    positionY_nm_estimates{frame_index} = positionY_nm_estimates_frame;
+    angleInclination_estimates{frame_index} = angleInclination_estimates_frame;
+    angleAzimuth_estimates{frame_index} = angleAzimuth_estimates_frame;
+    photons_estimates{frame_index} = photons_estimates_frame;
+
+    positionX_nm_errors{frame_index} = positionX_nm_errors_frame;
+    positionY_nm_errors{frame_index} = positionY_nm_errors_frame;
+    angleInclination_errors{frame_index} = angleInclination_errors_frame;
+    angleAzimuth_errors{frame_index} = angleAzimuth_errors_frame;
+    photons_errors{frame_index} = photons_errors_frame;
+
+    objective_function_estimates{frame_index} = objective_function_estimates_frame;
+
+    frame_time = toc;
+    fprintf('  Time for this frame: %.2f seconds\n', frame_time);
+
+    % Output
+
+    % Flatten the array (convert cell array to a numeric array)
+    positionX_nm_trues_flat = [positionX_nm_trues{:}];
+    positionY_nm_trues_flat = [positionY_nm_trues{:}];
+    angleInclination_trues_flat = [angleInclination_trues{:}];
+    angleAzimuth_trues_flat = [angleAzimuth_trues{:}];
+    photons_trues_flat = [photons_trues{:}];
+
+    positionX_nm_estimates_flat = [positionX_nm_estimates{:}];
+    positionY_nm_estimates_flat = [positionY_nm_estimates{:}];
+    angleInclination_estimates_flat = [angleInclination_estimates{:}];
+    angleAzimuth_estimates_flat = [angleAzimuth_estimates{:}];
+    photons_estimates_flat = [photons_estimates{:}];
+
+    positionX_nm_errors_flat = [positionX_nm_errors{:}];
+    positionY_nm_errors_flat = [positionY_nm_errors{:}];
+    angleInclination_errors_flat = [angleInclination_errors{:}];
+    angleAzimuth_errors_flat = [angleAzimuth_errors{:}];
+    photons_errors_flat = [photons_errors{:}];
+
+    objective_function_estimates_flat = [objective_function_estimates{:}];
+
+    % Save data about this stack of images (all frames compressed into one long array)
+
+    fileID = fopen(fitting_results_path, 'w');
+    fprintf(fileID, 'x_tru = [%s]\n', sprintf('%.4f, ', positionX_nm_trues_flat(1:end)));
+    fprintf(fileID, 'y_tru = [%s]\n', sprintf('%.4f, ', positionY_nm_trues_flat(1:end)));
+    fprintf(fileID, 'inc_tru = [%s]\n', sprintf('%.4f, ', angleInclination_trues_flat(1:end)));
+    fprintf(fileID, 'az_tru = [%s]\n', sprintf('%.4f, ', angleAzimuth_trues_flat(1:end)));
+    fprintf(fileID, 'x_est = [%s]\n', sprintf('%.4f, ', positionX_nm_estimates_flat(1:end)));
+    fprintf(fileID, 'y_est = [%s]\n', sprintf('%.4f, ', positionY_nm_estimates_flat(1:end)));
+    fprintf(fileID, 'inc_est = [%s]\n', sprintf('%.4f, ', angleInclination_estimates_flat(1:end)));
+    fprintf(fileID, 'az_est = [%s]\n', sprintf('%.4f, ', angleAzimuth_estimates_flat(1:end)));
+    fprintf(fileID, 'x_err = [%s]\n', sprintf('%.4f, ', positionX_nm_errors_flat(1:end)));
+    fprintf(fileID, 'y_err = [%s]\n', sprintf('%.4f, ', positionY_nm_errors_flat(1:end)));
+    fprintf(fileID, 'inc_err = [%s]\n', sprintf('%.4f, ', angleInclination_errors_flat(1:end)));
+    fprintf(fileID, 'az_err = [%s]\n', sprintf('%.4f, ', angleAzimuth_errors_flat(1:end)));
+    fprintf(fileID, 'photon_tru = [%s]\n', sprintf('%.4f, ', photons_trues_flat(1:end)));
+    fprintf(fileID, 'photon_est = [%s]\n', sprintf('%.4f, ', photons_estimates_flat(1:end)));
+    fprintf(fileID, 'photon_err = [%s]\n', sprintf('%.4f, ', photons_errors_flat(1:end)));
+    fprintf(fileID, 'obj_est = [%s]\n', sprintf('%.4f, ', objective_function_estimates_flat(1:end)));
+    fclose(fileID);
+
+end % end loop over frames
+
