@@ -27,7 +27,7 @@ stack_path = stack_dir + "sim_stack.tif";
 fitting_results_path = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/fitting_results_mortensen_test.csv';
 
 % Model to use
-model = 'mortensen';
+model = 'gaussian';
 
 % Size of patch around blob to consider
 patch_width_nm = 988;
@@ -289,15 +289,26 @@ for frame_index = 1:number_of_frames
 
         fitResult = FitPSF_ML_reparam2(psfInit, parEst, model);
 
-        angleInclination_estimate = acos(fitResult.estimatesPositionDefocus.ML(6));
-        angleAzimuth_estimate = atan2(fitResult.estimatesPositionDefocus.ML(5), fitResult.estimatesPositionDefocus.ML(4));
-        angleInclination_estimate = mod(angleInclination_estimate, pi/2);
-        angleAzimuth_estimate = mod(angleAzimuth_estimate, 2*pi);
+        if strcmpi(model, 'gaussian')
+
+            angleInclination_estimate = 0;
+            angleAzimuth_estimate = 0;
+            photons_fit_estimate = fitResult.estimatesPositionDefocus.ML(4);
+            objective_function_estimate = fitResult.estimatesPositionDefocus.ML(5);
+
+        else
+
+            angleInclination_estimate = acos(fitResult.estimatesPositionDefocus.ML(6));
+            angleAzimuth_estimate = atan2(fitResult.estimatesPositionDefocus.ML(5), fitResult.estimatesPositionDefocus.ML(4));
+            angleInclination_estimate = mod(angleInclination_estimate, pi/2);
+            angleAzimuth_estimate = mod(angleAzimuth_estimate, 2*pi);
+            photons_fit_estimate = fitResult.estimatesPositionDefocus.ML(7);
+            objective_function_estimate = fitResult.estimatesPositionDefocus.ML(8);
+
+        end
 
         positionX_nm_estimate = fitResult.estimatesPositionDefocus.ML(1) + actual_patch_center_x_nm; % Convert back to global position
         positionY_nm_estimate = fitResult.estimatesPositionDefocus.ML(2) + actual_patch_center_y_nm; % Convert back to global position
-        photons_fit_estimate = fitResult.estimatesPositionDefocus.ML(7);
-        objective_function_estimate = fitResult.estimatesPositionDefocus.ML(8);
 
         % Finding errors in the simulated data is a bit more complicated
         % because of things like multiple detections etc.

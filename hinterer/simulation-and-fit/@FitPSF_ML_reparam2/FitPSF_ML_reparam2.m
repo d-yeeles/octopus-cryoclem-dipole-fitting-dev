@@ -57,12 +57,12 @@ classdef FitPSF_ML_reparam2
                 obj.psf = psf;
                 obj.image = psf.image;
                 obj.nPhotonEstimate = round(sum(sum(obj.image - obj.noiseEstimate)));
-                obj.estimatesPositionDefocus = fitting(obj);
+                obj.estimatesPositionDefocus = fitting(obj, model);
             end
         end
         
         %% Fit
-        function estimatesPositionDefocus = fitting(obj)
+        function estimatesPositionDefocus = fitting(obj, model)
             parPsfEstimate = FitPSF_ML_reparam2.readParametersEstimate(obj.psf);
             parPsfEstimate.dipole = Dipole(0, 0);
             parPsfEstimate.position = Length([0 0 0], 'nm');
@@ -83,11 +83,16 @@ classdef FitPSF_ML_reparam2
                 error('Unknown model type: %s', obj.model);
             end
 
-            % dave apr 2025 - did hinterer need this?
-            psfImage = obj.image;% ./ norm(obj.image);
-            
+            if strcmpi(model, 'gaussian')
+                psfImage = obj.image ./ norm(obj.image); % dave apr 2025 - did hinterer need this?
+            elseif strcmpi(model, 'hinterer')
+                psfImage = obj.image ./ norm(obj.image); % dave apr 2025 - did hinterer need this?
+            elseif strcmpi(model, 'mortensen')
+                psfImage = obj.image;% ./ norm(obj.image); % dave apr 2025 - did hinterer need this?
+            end
+
             % estimatesPositionDefocus.LS = fitLeastSquaresPSF(obj, psfImage, psfEstimate);
-            estimatesPositionDefocus.ML = fitMaxLikelihoodPSF(obj, psfImage, psfEstimate);%, estimatesPositionDefocus.LS);
+            estimatesPositionDefocus.ML = fitMaxLikelihoodPSF(obj, psfImage, psfEstimate, model);%, estimatesPositionDefocus.LS);
 
         end
 
@@ -123,86 +128,113 @@ classdef FitPSF_ML_reparam2
         % 
         % end
 
-        function estimatesPositionDefocusML = fitMaxLikelihoodPSF(obj, image, psfEstimate)
+        function estimatesPositionDefocusML = fitMaxLikelihoodPSF(obj, image, psfEstimate, model)
             % Define the negative log-likelihood function
             lnpdf = @(z, lateralPositionAndDefocus) lnpdfFunction(obj, psfEstimate, z, lateralPositionAndDefocus);
             costFunction = @(x) -lnpdf(image, x); % Negate likelihood for minimization
         
-            % Constraint to ensure cos(az)^2 + sin(az)^2 = 1
-            nonlcon = @(x) deal([], x(4)^2 + x(5)^2 + x(6)^2 - 1);
-        
-            startValues = [
-                obj.parameterStartValues.x.inNanometer, ...
-                obj.parameterStartValues.y.inNanometer, ...
-                obj.parameterStartValues.defocus.inNanometer, ...
-                obj.parameterStartValues.newangle1, ...
-                obj.parameterStartValues.newangle2, ... 
-                obj.parameterStartValues.newangle3, ... 
-                obj.parameterStartValues.photons, ... 
-                ];
-        
-            % Define parameter bounds
-            xBounds = obj.parameterBounds.x.inNanometer;
-            yBounds = obj.parameterBounds.y.inNanometer;
-            defocusBounds = obj.parameterBounds.defocus.inNanometer;
-            newangle1Bounds = obj.parameterBounds.newangle1;
-            newangle2Bounds = obj.parameterBounds.newangle2;
-            newangle3Bounds = obj.parameterBounds.newangle3;
-            photonsBounds = obj.parameterBounds.photons;
-        
-            lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), newangle1Bounds(1), newangle2Bounds(1), newangle3Bounds(1), photonsBounds(1)];
-            upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), newangle1Bounds(2), newangle2Bounds(2), newangle3Bounds(2), photonsBounds(2)];
-        
-            options = optimoptions(@fmincon, 'Display', 'off');
-        
-            % Initialize best solutions
-            bestAttempt = [];
-            bestCost = Inf;
-            bestTheta = NaN;
-            
-            % First set of attempts (3 random attempts)
-            fprintf('   Attempt 1\n');
 
-            % First optimization attempt with starting values
-            firstAttempt = fmincon(@(x) -lnpdf(image, x), startValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
-            firstCost = costFunction(firstAttempt);
-            firstThetaEst = acos(firstAttempt(6));
-            firstThetaEst = mod(firstThetaEst, pi/2);
+            if strcmpi(model, 'gaussian') % don't optimise angles in this case
+
+                startValues = [
+                    obj.parameterStartValues.x.inNanometer, ...
+                    obj.parameterStartValues.y.inNanometer, ...
+                    obj.parameterStartValues.defocus.inNanometer, ...
+                    obj.parameterStartValues.photons, ... 
+                    ];
             
-            % Update best
-            bestAttempt = firstAttempt;
-            bestCost = firstCost;
-            bestTheta = firstThetaEst;
+                % Define parameter bounds
+                xBounds = obj.parameterBounds.x.inNanometer;
+                yBounds = obj.parameterBounds.y.inNanometer;
+                defocusBounds = obj.parameterBounds.defocus.inNanometer;
+                photonsBounds = obj.parameterBounds.photons;
             
-            % Run 2 more random attempts
-            for attempt = 2:3
-                fprintf('   Attempt %d\n', attempt);
+                lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), photonsBounds(1)];
+                upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), photonsBounds(2)];
+            
+                options = optimoptions(@fmincon, 'Display', 'off');
                 
-                % Generate random start values
-                newStartValues = startValues;
-                for j = 1:7
-                    newStartValues(j) = lowerBounds(j) + (upperBounds(j) - lowerBounds(j)) * rand;
+                % First set of attempts (3 random attempts)
+                fprintf('   Attempt 1\n');
+    
+                % First optimization attempt with starting values
+                firstAttempt = fmincon(@(x) -lnpdf(image, x), startValues, [], [], [], [], lowerBounds, upperBounds, [], options);
+                firstCost = costFunction(firstAttempt);
+                
+                % Update best
+                bestAttempt = firstAttempt;
+                bestCost = firstCost;
+                
+                % Run 2 more random attempts
+                for attempt = 2:3
+                    fprintf('   Attempt %d\n', attempt);
+                    
+                    % Generate random start values
+                    newStartValues = startValues;
+                    for j = 1:4
+                        newStartValues(j) = lowerBounds(j) + (upperBounds(j) - lowerBounds(j)) * rand;
+                    end
+                    
+                    % Run optimization
+                    currentAttempt = fmincon(@(x) -lnpdf(image, x), newStartValues, [], [], [], [], lowerBounds, upperBounds, [], options);
+                    currentCost = costFunction(currentAttempt);
+                    
+                    % Update best if this is better
+                    if currentCost < bestCost
+                        bestAttempt = currentAttempt;
+                        bestCost = currentCost;
+                    end
                 end
                 
-                % Run optimization
-                currentAttempt = fmincon(@(x) -lnpdf(image, x), newStartValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
-                currentCost = costFunction(currentAttempt);
-                currentThetaEst = acos(currentAttempt(6));
-                currentThetaEst = mod(currentThetaEst, pi/2);
-                
-                % Update best if this is better
-                if currentCost < bestCost
-                    bestAttempt = currentAttempt;
-                    bestCost = currentCost;
-                    bestTheta = currentThetaEst;
-                end
-            end
+                % Return the best result and add the cost value
+                estimatesPositionDefocusML = bestAttempt;
+                estimatesPositionDefocusML(end+1) = bestCost;
+
+            else % optimise angles too for hinterer and mortensen
+
+                % Constraint to ensure cos(az)^2 + sin(az)^2 = 1
+                nonlcon = @(x) deal([], x(4)^2 + x(5)^2 + x(6)^2 - 1);
             
-            % Check if bestTheta is within 1 degree of 90 degrees
-            if abs(bestTheta - pi/2) < 1*(pi/180)
+                startValues = [
+                    obj.parameterStartValues.x.inNanometer, ...
+                    obj.parameterStartValues.y.inNanometer, ...
+                    obj.parameterStartValues.defocus.inNanometer, ...
+                    obj.parameterStartValues.newangle1, ...
+                    obj.parameterStartValues.newangle2, ... 
+                    obj.parameterStartValues.newangle3, ... 
+                    obj.parameterStartValues.photons, ... 
+                    ];
+            
+                % Define parameter bounds
+                xBounds = obj.parameterBounds.x.inNanometer;
+                yBounds = obj.parameterBounds.y.inNanometer;
+                defocusBounds = obj.parameterBounds.defocus.inNanometer;
+                newangle1Bounds = obj.parameterBounds.newangle1;
+                newangle2Bounds = obj.parameterBounds.newangle2;
+                newangle3Bounds = obj.parameterBounds.newangle3;
+                photonsBounds = obj.parameterBounds.photons;
+            
+                lowerBounds = [xBounds(1), yBounds(1), defocusBounds(1), newangle1Bounds(1), newangle2Bounds(1), newangle3Bounds(1), photonsBounds(1)];
+                upperBounds = [xBounds(2), yBounds(2), defocusBounds(2), newangle1Bounds(2), newangle2Bounds(2), newangle3Bounds(2), photonsBounds(2)];
+            
+                options = optimoptions(@fmincon, 'Display', 'off');
                 
-                % Run 3 more random attempts
-                for attempt = 4:6
+                % First set of attempts (3 random attempts)
+                fprintf('   Attempt 1\n');
+    
+                % First optimization attempt with starting values
+                firstAttempt = fmincon(@(x) -lnpdf(image, x), startValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
+                firstCost = costFunction(firstAttempt);
+                firstThetaEst = acos(firstAttempt(6));
+                firstThetaEst = mod(firstThetaEst, pi/2);
+                
+                % Update best
+                bestAttempt = firstAttempt;
+                bestCost = firstCost;
+                bestTheta = firstThetaEst;
+                
+                % Run 2 more random attempts
+                for attempt = 2:3
                     fprintf('   Attempt %d\n', attempt);
                     
                     % Generate random start values
@@ -225,14 +257,11 @@ classdef FitPSF_ML_reparam2
                     end
                 end
                 
-                % Check if bestTheta is within 0.001 degrees of 90 degrees
-                if abs(bestTheta - pi/2) < 0.001*(pi/180)
+                % Check if bestTheta is within 1 degree of 90 degrees
+                if abs(bestTheta - pi/2) < 1*(pi/180)
                     
-                    % Run up to 5 more attempts or until condition is met
-                    maxAttempts = 11; % We've already done 6 attempts (1-6)
-                    attempt = 7;
-                    
-                    while attempt <= maxAttempts && abs(bestTheta - pi/2) < 0.001*(pi/180)
+                    % Run 3 more random attempts
+                    for attempt = 4:6
                         fprintf('   Attempt %d\n', attempt);
                         
                         % Generate random start values
@@ -253,17 +282,16 @@ classdef FitPSF_ML_reparam2
                             bestCost = currentCost;
                             bestTheta = currentThetaEst;
                         end
-                        
-                        attempt = attempt + 1;
                     end
                     
-                    % Check if bestTheta > 90 degrees
-                    if abs(bestTheta - pi/2) < 0.000001*(pi/180)
+                    % Check if bestTheta is within 0.001 degrees of 90 degrees
+                    if abs(bestTheta - pi/2) < 0.001*(pi/180)
                         
-                        % Run up to 100 more attempts or until condition is met
-                        maxAttempts = attempt + 100; 
+                        % Run up to 5 more attempts or until condition is met
+                        maxAttempts = 11; % We've already done 6 attempts (1-6)
+                        attempt = 7;
                         
-                        while attempt <= maxAttempts && bestTheta > pi/2
+                        while attempt <= maxAttempts && abs(bestTheta - pi/2) < 0.001*(pi/180)
                             fprintf('   Attempt %d\n', attempt);
                             
                             % Generate random start values
@@ -287,13 +315,47 @@ classdef FitPSF_ML_reparam2
                             
                             attempt = attempt + 1;
                         end
+                        
+                        % Check if bestTheta > 90 degrees
+                        if abs(bestTheta - pi/2) < 0.000001*(pi/180)
+                            
+                            % Run up to 100 more attempts or until condition is met
+                            maxAttempts = attempt + 100; 
+                            
+                            while attempt <= maxAttempts && bestTheta > pi/2
+                                fprintf('   Attempt %d\n', attempt);
+                                
+                                % Generate random start values
+                                newStartValues = startValues;
+                                for j = 1:7
+                                    newStartValues(j) = lowerBounds(j) + (upperBounds(j) - lowerBounds(j)) * rand;
+                                end
+                                
+                                % Run optimization
+                                currentAttempt = fmincon(@(x) -lnpdf(image, x), newStartValues, [], [], [], [], lowerBounds, upperBounds, nonlcon, options);
+                                currentCost = costFunction(currentAttempt);
+                                currentThetaEst = acos(currentAttempt(6));
+                                currentThetaEst = mod(currentThetaEst, pi/2);
+                                
+                                % Update best if this is better
+                                if currentCost < bestCost
+                                    bestAttempt = currentAttempt;
+                                    bestCost = currentCost;
+                                    bestTheta = currentThetaEst;
+                                end
+                                
+                                attempt = attempt + 1;
+                            end
+                        end
                     end
                 end
+                
+                % Return the best result and add the cost value
+                estimatesPositionDefocusML = bestAttempt;
+                estimatesPositionDefocusML(end+1) = bestCost;
+
             end
-            
-            % Return the best result and add the cost value
-            estimatesPositionDefocusML = bestAttempt;
-            estimatesPositionDefocusML(end+1) = bestCost;
+
         end
 
         function currentlnpdf = lnpdfFunction(obj,psfEstimate,z,lateralPositionAndDefocus) 
@@ -305,17 +367,30 @@ classdef FitPSF_ML_reparam2
 
         function currentFitPSF = createFitPSF(obj, psfEstimate, lateralPositionAndDefocus)
 
-            xEstimate = lateralPositionAndDefocus(1);
-            yEstimate = lateralPositionAndDefocus(2);
-            inclination = acos(lateralPositionAndDefocus(6));
-            azimuth = atan2(lateralPositionAndDefocus(5), lateralPositionAndDefocus(4));
-            inclination = mod(inclination, pi/2);
-            azimuth = mod(azimuth, 2*pi);
-            photonEstimate = lateralPositionAndDefocus(7);
+            if strcmpi(obj.model, 'gaussian')
 
-            psfEstimate.position = Length([xEstimate, yEstimate, 0], 'nm');
-            psfEstimate.defocus = Length(obj.parameterStartValues.defocus.inNanometer, 'nm');%Length(lateralPositionAndDefocus(3), 'nm');
-            psfEstimate.dipole = Dipole(inclination, azimuth); % dave jan 2025 - adding angle optimiser
+                xEstimate = lateralPositionAndDefocus(1);
+                yEstimate = lateralPositionAndDefocus(2);
+                photonEstimate = lateralPositionAndDefocus(4);
+    
+                psfEstimate.position = Length([xEstimate, yEstimate, 0], 'nm');
+                psfEstimate.defocus = Length(obj.parameterStartValues.defocus.inNanometer, 'nm');%Length(lateralPositionAndDefocus(3), 'nm');
+
+            else
+
+                xEstimate = lateralPositionAndDefocus(1);
+                yEstimate = lateralPositionAndDefocus(2);
+                inclination = acos(lateralPositionAndDefocus(6));
+                azimuth = atan2(lateralPositionAndDefocus(5), lateralPositionAndDefocus(4));
+                inclination = mod(inclination, pi/2);
+                azimuth = mod(azimuth, 2*pi);
+                photonEstimate = lateralPositionAndDefocus(7);
+    
+                psfEstimate.position = Length([xEstimate, yEstimate, 0], 'nm');
+                psfEstimate.defocus = Length(obj.parameterStartValues.defocus.inNanometer, 'nm');%Length(lateralPositionAndDefocus(3), 'nm');
+                psfEstimate.dipole = Dipole(inclination, azimuth); % dave jan 2025 - adding angle optimiser
+
+            end
 
             % currentPsf = zeros(psfEstimate.nPixels,psfEstimate.nPixels); 
             % for k=1:size(psfEstimate.stageDrift.motion,1)

@@ -237,10 +237,10 @@ addpath(genpath('../'));
 %% Simulate
 %% ----------
 
-model = 'mortensen';
+model = 'hinterer';
 
-inclinations = 67.5*(pi/180):67.5*(pi/180);%0:22.5*(pi/180):pi/2;
-azimuths = 0:12*(pi/180):2*pi-1*(pi/180);
+inclinations = [0*(pi/180), 22.5*(pi/180), 45*(pi/180), 67.5*(pi/180), 89*(pi/180)];
+azimuths = 0:1*(pi/180):2*pi-1*(pi/180);
 runs = 1:1;
 
 % Calculate total number of frames for pre-allocation
@@ -277,7 +277,7 @@ par.nPhotons = 2000;%1e10; % number of photons per spot - remember the image is 
 counter = 0;
 
 % Create CSV file for all simulations
-output_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_mortensen_test/';
+output_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer_all/';
 csv_output_path = [output_dir 'all_simulation_parameters.csv'];
 
 % Create and write header to CSV file

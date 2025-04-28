@@ -1,4 +1,4 @@
-function fit_stack_commandline(stack_dir, stack_name, results_path, model, patch_width_nm)
+function fit_stack_commandline(stack_path, params_path, results_path, model, patch_width_nm, starting_frame_index, ending_frame_index)
     % Function to fit multiple PSFs in a frame
     % 
     % USAGE:
@@ -13,8 +13,8 @@ function fit_stack_commandline(stack_dir, stack_name, results_path, model, patch
     %   (suggest 988 nm)
 
     % Add this after the function signature
-    if nargin < 5
-        error('Not enough input arguments. Usage: fit_multiple_psfs(stack_dir, stack_name, results_path, model, patch_width_nm)');
+    if nargin < 7
+        error('Not enough input arguments. Usage: fit_multiple_psfs(stack_path, params_path, results_path, model, patch_width_nm, starting_frame_index, ending_frame_index)');
     end
 
     % % Input params
@@ -30,7 +30,7 @@ function fit_stack_commandline(stack_dir, stack_name, results_path, model, patch
     % % Size of patch around blob to consider
     % patch_width_nm = 988; % size of patch around blob to consider
 
-    stack_path = strcat(stack_dir, stack_name);
+    % stack_path = strcat(stack_dir, stack_name);
 
     % Pull out info about image stack
     stack_info = imfinfo(stack_path);
@@ -60,16 +60,15 @@ function fit_stack_commandline(stack_dir, stack_name, results_path, model, patch
     % settings_paths = settings_paths(idx);
     
     % Find and read the CSV parameters file
-    csv_path = fullfile(stack_dir, 'all_simulation_parameters.csv');
-    if ~exist(csv_path, 'file')
-        error('Could not find parameters CSV file: %s', csv_path);
+    if ~exist(params_path, 'file')
+        error('Could not find parameters CSV file: %s', params_path);
     end
     
     % Read the CSV file
-    fprintf('Reading parameters from: %s\n', csv_path);
-    opts = detectImportOptions(csv_path);
+    fprintf('Reading parameters from: %s\n', params_path);
+    opts = detectImportOptions(params_path);
     opts.VariableNamingRule = 'preserve';
-    params_table = readtable(csv_path, opts);
+    params_table = readtable(params_path, opts);
     
     
     % Check if we have enough frames in the parameters file
@@ -89,7 +88,7 @@ function fit_stack_commandline(stack_dir, stack_name, results_path, model, patch
     % Loop over each image path and process
     
     % Loop over each frame in stack
-    for frame_index = 1:number_of_frames
+    for frame_index = starting_frame_index:ending_frame_index
     
         tic; % timing each frame
     
@@ -289,15 +288,26 @@ function fit_stack_commandline(stack_dir, stack_name, results_path, model, patch
     
             fitResult = FitPSF_ML_reparam2(psfInit, parEst, model);
     
-            angleInclination_estimate = acos(fitResult.estimatesPositionDefocus.ML(6));
-            angleAzimuth_estimate = atan2(fitResult.estimatesPositionDefocus.ML(5), fitResult.estimatesPositionDefocus.ML(4));
-            angleInclination_estimate = mod(angleInclination_estimate, pi/2);
-            angleAzimuth_estimate = mod(angleAzimuth_estimate, 2*pi);
+            if strcmpi(model, 'gaussian')
+    
+                angleInclination_estimate = 0;
+                angleAzimuth_estimate = 0;
+                photons_fit_estimate = fitResult.estimatesPositionDefocus.ML(4);
+                objective_function_estimate = fitResult.estimatesPositionDefocus.ML(5);
+    
+            else
+    
+                angleInclination_estimate = acos(fitResult.estimatesPositionDefocus.ML(6));
+                angleAzimuth_estimate = atan2(fitResult.estimatesPositionDefocus.ML(5), fitResult.estimatesPositionDefocus.ML(4));
+                angleInclination_estimate = mod(angleInclination_estimate, pi/2);
+                angleAzimuth_estimate = mod(angleAzimuth_estimate, 2*pi);
+                photons_fit_estimate = fitResult.estimatesPositionDefocus.ML(7);
+                objective_function_estimate = fitResult.estimatesPositionDefocus.ML(8);
+    
+            end
     
             positionX_nm_estimate = fitResult.estimatesPositionDefocus.ML(1) + actual_patch_center_x_nm; % Convert back to global position
             positionY_nm_estimate = fitResult.estimatesPositionDefocus.ML(2) + actual_patch_center_y_nm; % Convert back to global position
-            photons_fit_estimate = fitResult.estimatesPositionDefocus.ML(7);
-            objective_function_estimate = fitResult.estimatesPositionDefocus.ML(8);
     
             % Finding errors in the simulated data is a bit more complicated
             % because of things like multiple detections etc.

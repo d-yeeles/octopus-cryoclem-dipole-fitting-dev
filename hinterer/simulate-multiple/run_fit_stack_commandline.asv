@@ -12,10 +12,9 @@ function run_fit_stack_commandline(varargin)
     ending_frame_index = strip_quotes(varargin{7});
 
     patch_width_nm = str2double(patch_width_nm_str);
-    starting_frame_index = str2double(starting_frame_index);
-    ending_frame_index = str2double(ending_frame_index);
+        patch_width_nm = str2double(patch_width_nm_str);
 
-    fit_stack_commandline(stack_path, params_path, results_path, model, patch_width_nm, starting_frame_index, ending_frame_index);
+    fit_stack_commandline(stack_path, params_path, results_path, model, patch_width_nm);
     exit;
 end
 

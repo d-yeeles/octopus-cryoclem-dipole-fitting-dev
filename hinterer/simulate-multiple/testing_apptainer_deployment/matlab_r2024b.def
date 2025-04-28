@@ -1,0 +1,48 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%post
+    # Install necessary system packages
+    apt-get update
+    apt-get install -y wget unzip xorg libxt6 libncurses5 libxext6 \
+        libxmu6 libxpm4 libglu1-mesa libgl1-mesa-glx libssl-dev
+
+    # Create directory for MATLAB Runtime
+    mkdir -p /opt/mcr
+
+    # Download the MATLAB Runtime installer for R2024b
+    cd /tmp
+    wget -q https://ssd.mathworks.com/supportfiles/downloads/R2024b/Release/1/deployment_files/installer/complete/glnxa64/MATLAB_Runtime_R2024b_glnxa64.zip
+    unzip MATLAB_Runtime_R2024b_glnxa64.zip
+    rm MATLAB_Runtime_R2024b_glnxa64.zip
+
+    # Install MATLAB Runtime silently
+    ./install -mode silent -agreeToLicense yes -destinationFolder /opt/mcr
+
+    # Clean up
+    cd /
+    rm -rf /tmp/*
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+
+    # Create environment setup script
+    echo '#!/bin/bash
+export LD_LIBRARY_PATH=/opt/mcr/v914/runtime/glnxa64:/opt/mcr/v914/bin/glnxa64:/opt/mcr/v914/sys/os/glnxa64:/opt/mcr/v914/extern/bin/glnxa64:$LD_LIBRARY_PATH
+export XAPPLRESDIR=/opt/mcr/v914/X11/app-defaults
+export MCR_CACHE_ROOT=/tmp
+' > /opt/mcr_setup.sh
+    chmod +x /opt/mcr_setup.sh
+
+%environment
+    export LD_LIBRARY_PATH=/opt/mcr/v914/runtime/glnxa64:/opt/mcr/v914/bin/glnxa64:/opt/mcr/v914/sys/os/glnxa64:/opt/mcr/v914/extern/bin/glnxa64:$LD_LIBRARY_PATH
+    export XAPPLRESDIR=/opt/mcr/v914/X11/app-defaults
+    export MCR_CACHE_ROOT=/tmp
+
+%runscript
+    source /opt/mcr_setup.sh
+    exec "$@"
+
+%labels
+    Author YourName
+    Version v1.0
+    Description MATLAB Runtime R2024b for your cryo-EM analysis application
