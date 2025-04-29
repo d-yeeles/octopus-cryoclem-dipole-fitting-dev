@@ -1,4 +1,4 @@
-test_multispot Executable
+test_thunderstorm Executable
 
 1. Prerequisites for Deployment 
 
@@ -23,12 +23,12 @@ in the MathWorks Documentation Center.
 
 Files to Package for Standalone 
 ================================
--test_multispot 
--run_test_multispot.sh (shell script for temporarily setting environment variables and 
-                        executing the application)
+-test_thunderstorm 
+-run_test_thunderstorm.sh (shell script for temporarily setting environment variables and 
+                           executing the application)
    -to run the shell script, type
    
-       ./run_test_multispot.sh <mcr_directory> <argument_list>
+       ./run_test_thunderstorm.sh <mcr_directory> <argument_list>
        
     at Linux or Mac command prompt. <mcr_directory> is the directory 
     where MATLAB Runtime(R2024b) is installed or the directory where 
@@ -38,12 +38,12 @@ Files to Package for Standalone
     If you have MATLAB Runtime(R2024b) installed in 
     /mathworks/home/application/R2024b, run the shell script as:
     
-       ./run_test_multispot.sh /mathworks/home/application/R2024b
+       ./run_test_thunderstorm.sh /mathworks/home/application/R2024b
        
     If you have MATLAB installed in /mathworks/devel/application/matlab, 
     run the shell script as:
     
-       ./run_test_multispot.sh /mathworks/devel/application/matlab
+       ./run_test_thunderstorm.sh /mathworks/devel/application/matlab
 -MCRInstaller.zip
     Note: if end users are unable to download the MATLAB Runtime using the
     instructions in the previous section, include it when building your 
@@ -92,7 +92,7 @@ ${LD_LIBRARY_PATH}:MR/R2024b/runtime/glnxa64:MR/R2024b/bin/glnxa64:MR/R2024b/sys
         NOTE: The environment variable syntax utilizes forward 
               slashes (/), delimited by colons (:).  
         NOTE: When deploying standalone applications, you can
-              run the shell script file run_test_multispot.sh 
+              run the shell script file run_test_thunderstorm.sh 
               instead of setting environment variables. See 
               section 2 "Files to Deploy and Package".    
 
