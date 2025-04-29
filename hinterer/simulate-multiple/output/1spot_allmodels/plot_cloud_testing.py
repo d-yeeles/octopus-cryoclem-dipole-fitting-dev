@@ -24,8 +24,8 @@ dYellows = LinearSegmentedColormap.from_list('dyellow_to_white', [(1, 1, 1), dye
 
 # Define file paths for CSV files
 file_paths = [
-    './fitting_results_hinterer_test_runtime_apptainer.csv',
-    './fitting_results_mortensen_test_runtime_apptainer.csv',
+    './fitting_results_hinterer_multispot_test.csv',
+    './fitting_results_mortensen_multispot_test.csv',
 ]
 
 model_names = ['hinterer', 'mortensen']
@@ -86,7 +86,7 @@ for dataset in datasets:
 output_dir = './'
 
 # Generate plots for each fixed inclination
-for inclination in [68]:
+for inclination in [0]:
     fig, axs = plt.subplots(2, 2, figsize=(10, 10))
 
     for i, dataset in enumerate(datasets):
@@ -133,8 +133,8 @@ for inclination in [68]:
         cbar = fig.colorbar(scatter, ax=axs[i, 0], pad=0.01)
         cbar.set_label('Theta error, °')
         
-        axs[i, 0].set_xlim(-20, 20)
-        axs[i, 0].set_ylim(-20, 20)
+#        axs[i, 0].set_xlim(-20, 20)
+#        axs[i, 0].set_ylim(-20, 20)
         axs[i, 0].set_aspect('equal')
         axs[i, 0].grid(True, linestyle='--', alpha=0.7)
         axs[i, 0].axhline(y=0, color='gray', linestyle='-', alpha=0.5)

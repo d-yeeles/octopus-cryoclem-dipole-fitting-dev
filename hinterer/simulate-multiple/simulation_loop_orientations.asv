@@ -489,10 +489,10 @@ addpath(genpath('../'));
 
 model = 'hinterer';
 
-num_frames = 10; % Number of frames to generate
+num_frames = 100; % Number of frames to generate
 
 % Global params - these will be the same whether sim or fit
-number_of_spots = 9; % Total number of spots per frame
+number_of_spots = 1; % Total number of spots per frame
 
 % Calculate how to distribute the spots across inclination and azimuth
 % For a square-like distribution:
@@ -546,7 +546,7 @@ backgroundNoise = 0;
 par.nPhotons = 2000;
 
 % Create output directory if it doesn't exist
-output_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_hinterer_test/';
+output_dir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulate-multiple/output/1spot_allmodels/sims_mortensen_test/';
 if ~exist(output_dir, 'dir')
     mkdir(output_dir);
 end

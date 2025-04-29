@@ -25,8 +25,10 @@ function nm = px_to_nm(px, pixel_size_nm, image_size_px, axis)
     end
     
     % Get center of image in pixel coordinates
-    center_x_px = floor(width_px/2) + 1;
-    center_y_px = floor(height_px/2) + 1;
+    % center_x_px = floor(width_px/2) + 1;
+    % center_y_px = floor(height_px/2) + 1;
+    center_x_px = width_px/2 + 0.5; 
+    center_y_px = height_px/2 + 0.5; 
     
     % Convert based on axis
     if strcmpi(axis, 'x')
