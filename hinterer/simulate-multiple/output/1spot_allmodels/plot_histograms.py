@@ -24,12 +24,12 @@ dYellows = LinearSegmentedColormap.from_list('dyellow_to_white', [(1, 1, 1), dye
 
 # Define file paths for CSV files
 file_paths = [
-    './fitting_results_gaussian_on_mortensen.csv',
-    './fitting_results_hinterer_on_mortensen.csv',
-    './fitting_results_mortensen_on_mortensen.csv',
+    './fitting_results_gaussian_on_hinterer.csv',
+    './fitting_results_hinterer_on_hinterer.csv',
+    './fitting_results_mortensen_on_hinterer.csv',
 ]
 
-model_names = ['gaussian', 'hinterer', 'mortensen']
+model_names = ['Gaussian', 'Hinterer', 'Mortensen']
 datasets = []
 
 # Load and process data from CSV files
@@ -88,6 +88,8 @@ import seaborn as sns
 for inclination in [0, 23, 45, 68, 90]:
    
     fig, axs = plt.subplots(3, 6, figsize=(40, 15))
+
+    fig.suptitle(f'Hinterer Simulations, θ={inclination}°', fontsize=16, y=0.99)
 
     for i, dataset in enumerate(datasets):
 
@@ -240,7 +242,7 @@ for inclination in [0, 23, 45, 68, 90]:
 
 
     plt.tight_layout()
-    output_filename = f"histograms_mortensen_inc{round(inclination)}.png"
+    output_filename = f"histograms_hinterer_inc{round(inclination)}.pdf"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
     plt.close()
 

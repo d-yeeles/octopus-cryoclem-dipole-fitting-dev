@@ -86,7 +86,7 @@ classdef FitPSF_ML_reparam2
             if strcmpi(model, 'gaussian')
                 psfImage = obj.image ./ norm(obj.image); % dave apr 2025 - did hinterer need this?
             elseif strcmpi(model, 'hinterer')
-                psfImage = obj.image ./ norm(obj.image); % dave apr 2025 - did hinterer need this?
+                psfImage = obj.image;% ./ norm(obj.image); % dave apr 2025 - did hinterer need this?
             elseif strcmpi(model, 'mortensen')
                 psfImage = obj.image;% ./ norm(obj.image); % dave apr 2025 - did hinterer need this?
             end
@@ -408,11 +408,60 @@ classdef FitPSF_ML_reparam2
 
                 % Call Python stuff
                 % pyDir = pwd; % or specify the exact path where mortensen_simulator.py is located
-                pyDir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulation-and-fit/@FitPSF_ML_reparam2'; % or specify the exact path where mortensen_simulator.py is located
+%                pyDir = '/home/tfq96423/Documents/cryoCLEM/dipole-issue/fixed-dipole-issue/hinterer/simulation-and-fit/@FitPSF_ML_reparam2'; % or specify the exact path where mortensen_simulator.py is located
+                % pyDir = fullfile(pwd, '..', 'simulation-and-fit', 'mortensen_python_bits');
+                % if count(py.sys.path(), pyDir) == 0
+                %     py.sys.path().insert(int32(0), pyDir);
+                % end
 
-                if count(py.sys.path(), pyDir) == 0
-                    py.sys.path().insert(int32(0), pyDir);
+
+                % Try two specific locations for the Python module (local
+                % vs cluster)
+                possibleDirs = {
+                    fullfile(pwd, '..', 'simulation-and-fit', 'mortensen_python_bits'), ...
+                    '/mnt/rclsfserv005/users/tfq96423/dipole_fitting/mortensen_python_bits'
+                };
+                
+                % Try each location until we find the Python file
+                pyModuleFound = false;
+                for i = 1:length(possibleDirs)
+                    pyDir = possibleDirs{i};
+                    % fprintf('Checking for Python module in: %s\n', pyDir);
+                    
+                    % Check if directory exists
+                    if ~exist(pyDir, 'dir')
+                        % fprintf('Directory does not exist: %s\n', pyDir);
+                        continue;  % Skip to next directory
+                    end
+                    
+                    % Check if Python file exists in this directory
+                    pyFilePath = fullfile(pyDir, 'vectorized_mortensen_flipy_phi_theta.py');
+                    if exist(pyFilePath, 'file')
+                        % fprintf('Found Python module at: %s\n', pyFilePath);
+                        
+                        % Add to Python path
+                        if count(py.sys.path(), pyDir) == 0
+                            py.sys.path().insert(int32(0), pyDir);
+                            % fprintf('Added to Python path: %s\n', pyDir);
+                        end
+                        
+                        pyModuleFound = true;
+                        break;  % Found the file, stop looking
+                    else
+                        % fprintf('Python file not found in directory: %s\n', pyDir);
+                    end
                 end
+                
+                % If the module wasn't found in any location, show an error
+                if ~pyModuleFound
+                    error(['Python module "vectorized_mortensen_flipy_phi_theta.py" not found in any of the specified locations. ', ...
+                           'Please ensure the file exists in one of these directories:\n', ...
+                           '- %s\n', ...
+                           '- %s'], possibleDirs{1}, possibleDirs{2});
+                end
+
+
+
 
                 % disp(['Sending photon estimate to Python: ', num2str(photonEstimate)]);
 
@@ -500,7 +549,8 @@ classdef FitPSF_ML_reparam2
                     totalIntensity = sum(currentPsf,'all');
                     currentPsf = currentPsf ./ totalIntensity * photonEstimate + obj.noiseEstimate;
                     % disp(currentPsf)
-                    currentFitPSF = currentPsf ./ norm(currentPsf);
+                    % currentFitPSF = currentPsf ./ norm(currentPsf);
+                    currentFitPSF = currentPsf;% !!! maybe swap this back - 8th May 2025
                     % disp(currentFitPSF)
 
             end

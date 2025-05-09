@@ -6,11 +6,11 @@ from matplotlib.colors import LinearSegmentedColormap
 import seaborn as sns
 
 
-def compute_para_perp(x_diffs, y_diffs, azimuths):
+def compute_para_perp(x_errors, y_errors, azimuths):
     """Compute parallel and perpendicular errors"""
-    para_diffs = x_diffs*np.cos(azimuths) - y_diffs*np.sin(azimuths)
-    perp_diffs = x_diffs*np.sin(azimuths) + y_diffs*np.cos(azimuths)
-    return para_diffs, perp_diffs
+    para_errors = x_errors*np.cos(azimuths) - y_errors*np.sin(azimuths)
+    perp_errors = x_errors*np.sin(azimuths) + y_errors*np.cos(azimuths)
+    return para_errors, perp_errors
 
 
 # Get default matplotlib colours
@@ -24,8 +24,8 @@ dYellows = LinearSegmentedColormap.from_list('dyellow_to_white', [(1, 1, 1), dye
 
 # Define file paths for CSV files
 file_paths = [
-    './fitting_results_hinterer_test.csv',
-    './fitting_results_hinterer_test.csv',
+    './results_with_covar_example.csv',
+    './results_with_covar_example.csv',
 ]
 
 model_names = ['hinterer', 'mortensen']
@@ -42,19 +42,19 @@ for i, file_path in enumerate(file_paths):
         df = pd.read_csv(full_path)
         
         # Calculate errors if they're not already in the CSV
-        if 'para_dif' not in df.columns or 'perp_dif' not in df.columns:
+        if 'para_err' not in df.columns or 'perp_err' not in df.columns:
             # Convert azimuths to radians for calculation if they're in degrees
-            az_rad = df['az_thu'] * np.pi / 180 if df['az_thu'].max() > 6.28 else df['az_thu']
+            az_rad = df['az_tru'] * np.pi / 180 if df['az_tru'].max() > 6.28 else df['az_tru']
             
             # Calculate parallel and perpendicular errors
-            para_diffs, perp_diffs = compute_para_perp(
-                df['x_thu'] - df['x_est'], 
-                df['y_thu'] - df['y_est'], 
+            para_errors, perp_errors = compute_para_perp(
+                df['x_tru'] - df['x_est'], 
+                df['y_tru'] - df['y_est'], 
                 az_rad
             )
             
-            df['para_dif'] = para_diffs
-            df['perp_dif'] = perp_diffs
+            df['para_err'] = para_errors
+            df['perp_err'] = perp_errors
         
         datasets.append(df)
     else:
@@ -66,21 +66,21 @@ for i, file_path in enumerate(file_paths):
 for dataset in datasets:
     if not dataset.empty:
         # Check if angles are in radians and convert to degrees if needed
-        for col in ['inc_thu', 'az_thu', 'inc_est', 'az_est', 'inc_dif', 'az_dif']:
+        for col in ['inc_tru', 'az_tru', 'inc_est', 'az_est', 'inc_err', 'az_err']:
             if col in dataset.columns:
                 # If max value is less than 7, assume radians and convert to degrees
                 if dataset[col].abs().max() < 7:
                     dataset[col] = dataset[col] * 180 / np.pi
 
         # Account for wrapping of inclination around 180 degrees
-        if 'inc_dif' in dataset.columns:
-            dataset['inc_dif'] = np.mod(dataset['inc_dif'], 180)
-            dataset['inc_dif'] = np.minimum(np.abs(dataset['inc_dif']), 180 - np.abs(dataset['inc_dif']))
+        if 'inc_err' in dataset.columns:
+            dataset['inc_err'] = np.mod(dataset['inc_err'], 180)
+            dataset['inc_err'] = np.minimum(np.abs(dataset['inc_err']), 180 - np.abs(dataset['inc_err']))
 
         # Account for wrapping of azimuth around 360 degrees
-        if 'az_dif' in dataset.columns:
-            dataset['az_dif'] = np.mod(dataset['az_dif'], 360)
-            dataset['az_dif'] = np.minimum(np.abs(dataset['az_dif']), 360 - np.abs(dataset['az_dif']))
+        if 'az_err' in dataset.columns:
+            dataset['az_err'] = np.mod(dataset['az_err'], 360)
+            dataset['az_err'] = np.minimum(np.abs(dataset['az_err']), 360 - np.abs(dataset['az_err']))
 
 # Output directory
 output_dir = './'
@@ -94,7 +94,7 @@ for inclination in [0]:
             continue
 
         # Filter data for given inclination
-        dataset_inc = dataset[abs(dataset['inc_thu'] - inclination) <= 5]
+        dataset_inc = dataset[abs(dataset['inc_tru'] - inclination) <= 999995]
 
         if dataset_inc.empty:
             continue
@@ -102,29 +102,29 @@ for inclination in [0]:
         IQR_multiplier = 500000000000  # Effectively no outlier removal
         
         # Get error data
-        para_dif = dataset_inc["para_dif"]
-        perp_dif = dataset_inc["perp_dif"]
-        combined_dif = np.sqrt(para_dif**2 + perp_dif**2)
+        para_err = dataset_inc["para_err"]
+        perp_err = dataset_inc["perp_err"]
+        combined_err = np.sqrt(para_err**2 + perp_err**2)
         
         # IQR to remove outliers based on combined error
-        Q1 = np.percentile(combined_dif, 25)
-        Q3 = np.percentile(combined_dif, 75)
+        Q1 = np.percentile(combined_err, 25)
+        Q3 = np.percentile(combined_err, 75)
         IQR = Q3 - Q1
         lower_bound = Q1 - IQR_multiplier * IQR
         upper_bound = Q3 + IQR_multiplier * IQR
         
         # Filter data and calculate outlier percentage
-        mask = (combined_dif >= lower_bound) & (combined_dif <= upper_bound)
-        total_points = len(combined_dif)
+        mask = (combined_err >= lower_bound) & (combined_err <= upper_bound)
+        total_points = len(combined_err)
         outliers = total_points - np.sum(mask)
         outlier_percent = (outliers / total_points) * 100 if total_points > 0 else 0
         
         # Plot inclination error (theta error)
-        filtered_para = para_dif[mask]
-        filtered_perp = perp_dif[mask]
-        filtered_inc_dif = dataset_inc["inc_dif"][mask]
+        filtered_para = para_err[mask]
+        filtered_perp = perp_err[mask]
+        filtered_inc_err = dataset_inc["inc_err"][mask]
         
-        scatter = axs[i, 0].scatter(filtered_para, filtered_perp, s=2, c=filtered_inc_dif, cmap='rainbow')
+        scatter = axs[i, 0].scatter(filtered_para, filtered_perp, s=2, c=filtered_inc_err, cmap='rainbow')
         
         axs[i, 0].set_xlabel('Parallel error (Δ$\parallel$), nm')
         axs[i, 0].set_ylabel('Perpendicular error (Δ$\perp$), nm')
@@ -141,9 +141,9 @@ for inclination in [0]:
         axs[i, 0].axvline(x=0, color='gray', linestyle='-', alpha=0.5)
 
         # Plot azimuth error (phi error)
-        filtered_az_dif = dataset_inc["az_dif"][mask]
+        filtered_az_err = dataset_inc["az_err"][mask]
         
-        scatter = axs[i, 1].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_dif, cmap='rainbow')
+        scatter = axs[i, 1].scatter(filtered_para, filtered_perp, s=2, c=filtered_az_err, cmap='rainbow')
         
         axs[i, 1].set_xlabel('Parallel error (Δ$\parallel$), nm')
         axs[i, 1].set_ylabel('Perpendicular error (Δ$\perp$), nm')

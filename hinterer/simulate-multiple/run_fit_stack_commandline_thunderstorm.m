@@ -1,27 +1,32 @@
 function run_fit_stack_commandline_thunderstorm(varargin)
-    if nargin < 7
-        error('Usage: matlab -nodisplay -r "run_fit_stack_commandline_thunderstorm(''input_image_and_thunderstorm_path'', ''model'', ''patch_width_nm'', ''ROI_centre_x_nm'', ''ROI_centre_y_nm'', ''ROI_width_nm'', ''ROI_height_nm'', ''starting_frame_index'', ''ending_frame_index'')"');
+    if nargin < 5
+        error('Usage: matlab -nodisplay -r "run_fit_stack_commandline_thunderstorm(''input_image_path'', ''input_thunderstorm_path'', ''output_results_path'', ''model'', ''patch_width_nm'', ''first_frame'', ''last_frame'')"');
     end
     
-    input_image_and_thunderstorm_path = strip_quotes(varargin{1});
-    model = strip_quotes(varargin{2});
-    patch_width_nm_str = strip_quotes(varargin{3});
-    ROI_centre_x_nm_str = strip_quotes(varargin{4});
-    ROI_centre_y_nm_str = strip_quotes(varargin{5});
-    ROI_width_nm_str = strip_quotes(varargin{6});
-    ROI_height_nm_str = strip_quotes(varargin{7});
-    starting_frame_index = strip_quotes(varargin{8});
-    ending_frame_index = strip_quotes(varargin{9});
+    input_image_path = strip_quotes(varargin{1});
+    input_thunderstorm_path = strip_quotes(varargin{2});
+    output_results_path = strip_quotes(varargin{3});
+    model = strip_quotes(varargin{4});
+    patch_width_nm_str = strip_quotes(varargin{5});
+    first_frame_str = strip_quotes(varargin{6});
+    last_frame_str = strip_quotes(varargin{7});
 
-    ROI_centre_x_nm = str2double(ROI_centre_x_nm_str);
-    ROI_centre_y_nm = str2double(ROI_centre_y_nm_str);
-    ROI_width_nm = str2double(ROI_width_nm_str);
-    ROI_height_nm = str2double(ROI_height_nm_str);
     patch_width_nm = str2double(patch_width_nm_str);
-    starting_frame_index = str2double(starting_frame_index);
-    ending_frame_index = str2double(ending_frame_index);
+    first_frame = str2double(first_frame_str);
+    last_frame = str2double(last_frame_str);
 
-    fit_stack_commandline_thunderstorm(input_image_and_thunderstorm_path, model, patch_width_nm, ROI_centre_x_nm, ROI_centre_y_nm, ROI_width_nm, ROI_height_nm, starting_frame_index, ending_frame_index);
+    % % If frame_array is a string of comma-separated numbers like "1,2,3,4"
+    % if ischar(frame_array) || isstring(frame_array)
+    %     % Remove any brackets if present
+    %     frame_array = strrep(frame_array, '[', '');
+    %     frame_array = strrep(frame_array, ']', '');
+    %     % Split by comma
+    %     frame_array_str = strsplit(frame_array, ',');
+    %     % Convert each element to number
+    %     frame_array = arrayfun(@str2double, frame_array_str);
+    % end
+
+    fit_stack_commandline_thunderstorm(input_image_path, input_thunderstorm_path, output_results_path, model, patch_width_nm, first_frame, last_frame);
     exit;
 end
 

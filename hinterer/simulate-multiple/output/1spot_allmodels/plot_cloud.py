@@ -24,12 +24,12 @@ dYellows = LinearSegmentedColormap.from_list('dyellow_to_white', [(1, 1, 1), dye
 
 # Define file paths for CSV files
 file_paths = [
-    './fitting_results_gaussian_on_mortensen.csv',
-    './fitting_results_hinterer_on_mortensen.csv',
-    './fitting_results_mortensen_on_mortensen.csv',
+    './fitting_results_gaussian_on_hinterer.csv',
+    './fitting_results_hinterer_on_hinterer.csv',
+    './fitting_results_mortensen_on_hinterer.csv',
 ]
 
-model_names = ['gaussian', 'hinterer', 'mortensen']
+model_names = ['Gaussian', 'Hinterer', 'Mortensen']
 datasets = []
 
 # Load and process data from CSV files
@@ -89,6 +89,8 @@ for inclination in [0, 23, 45, 68, 90]:
    
     fig, axs = plt.subplots(3, 2, figsize=(10, 15))
 
+    fig.suptitle(f'Hinterer Simulations, θ={inclination}°', fontsize=16, y=0.99)
+
     for i, dataset in enumerate(datasets):
 
         dataset_inc = dataset[abs(dataset['inc_tru'] - inclination) <= 5]
@@ -134,7 +136,7 @@ for inclination in [0, 23, 45, 68, 90]:
         axs[i, 0].set_xlabel('Parallel error (Δ$\parallel$), nm')
         axs[i, 0].set_ylabel('Perpendicular error (Δ$\perp$), nm')
         axs[i, 0].set_title(
-            f"{model_names[i]}\nθ={inclination}°"
+            f"{model_names[i]}"
         )
         
         # Add colorbar
@@ -196,7 +198,7 @@ for inclination in [0, 23, 45, 68, 90]:
         axs[i, 1].set_xlabel('Parallel error (Δ$\parallel$), nm')
         axs[i, 1].set_ylabel('Perpendicular error (Δ$\perp$), nm')
         axs[i, 1].set_title(
-            f"{model_names[i]}\nθ={inclination}°"
+            f"{model_names[i]}"
         )
         
         # Add colorbar
@@ -218,7 +220,7 @@ for inclination in [0, 23, 45, 68, 90]:
 
 
     plt.tight_layout()
-    output_filename = f"cloud_mortensen_inc{round(inclination)}.png"
+    output_filename = f"cloud_hinterer_inc{round(inclination)}.pdf"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
     plt.close()
 

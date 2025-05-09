@@ -6,11 +6,11 @@ from matplotlib.colors import LinearSegmentedColormap
 import seaborn as sns
 
 
-def compute_para_perp(x_diffs, y_diffs, azimuths):
+def compute_para_perp(x_errors, y_errors, azimuths):
     """Compute parallel and perpendicular errors"""
-    para_diffs = x_diffs*np.cos(azimuths) - y_diffs*np.sin(azimuths)
-    perp_diffs = x_diffs*np.sin(azimuths) + y_diffs*np.cos(azimuths)
-    return para_diffs, perp_diffs
+    para_errors = x_errors*np.cos(azimuths) - y_errors*np.sin(azimuths)
+    perp_errors = x_errors*np.sin(azimuths) + y_errors*np.cos(azimuths)
+    return para_errors, perp_errors
 
 
 # Get default matplotlib colours
@@ -24,12 +24,12 @@ dYellows = LinearSegmentedColormap.from_list('dyellow_to_white', [(1, 1, 1), dye
 
 # Define file paths for CSV files
 file_paths = [
-    './fitting_results_gaussian_on_mortensen.csv',
-    './fitting_results_hinterer_on_mortensen.csv',
-    './fitting_results_mortensen_on_mortensen.csv',
+    'fitting_results_hinterer_test_first100.csv',
+    'fitting_results_hinterer_test_first100.csv',
+    'fitting_results_hinterer.csv',
 ]
 
-model_names = ['gaussian', 'hinterer', 'mortensen']
+model_names = ['blah1', 'blah2', 'Hinterer']
 datasets = []
 
 # Load and process data from CSV files
@@ -43,19 +43,19 @@ for i, file_path in enumerate(file_paths):
         df = pd.read_csv(full_path)
         
         # Calculate errors if they're not already in the CSV
-        if 'para_dif' not in df.columns or 'perp_dif' not in df.columns:
+        if 'para_err' not in df.columns or 'perp_err' not in df.columns:
             # Convert azimuths to radians for calculation if they're in degrees
-            az_rad = df['az_thu'] * np.pi / 180 if df['az_thu'].max() > 6.28 else df['az_thu']
+            az_rad = df['az_tru'] * np.pi / 180 if df['az_tru'].max() > 6.28 else df['az_tru']
             
             # Calculate parallel and perpendicular errors
-            para_diffs, perp_diffs = compute_para_perp(
-                df['x_thu'] - df['x_est'], 
-                df['y_thu'] - df['y_est'], 
+            para_errors, perp_errors = compute_para_perp(
+                df['x_tru'] - df['x_est'], 
+                df['y_tru'] - df['y_est'], 
                 az_rad
             )
             
-            df['para_dif'] = para_diffs
-            df['perp_dif'] = perp_diffs
+            df['para_err'] = para_errors
+            df['perp_err'] = perp_errors
         
         datasets.append(df)
     else:
@@ -66,16 +66,16 @@ for i, file_path in enumerate(file_paths):
 for dataset in datasets:
 
     # Convert rad to deg
-    angle_columns = ["inc_thu", "az_thu", "inc_est", "az_est", "inc_dif", "az_dif"]
+    angle_columns = ["inc_tru", "az_tru", "inc_est", "az_est", "inc_err", "az_err"]
     dataset[angle_columns] = dataset[angle_columns] * 180 / np.pi
 
     # Account for wrapping of inc around 180 degrees:
-    dataset["inc_dif"] = np.mod(dataset["inc_dif"], 180)
-    dataset["inc_dif"] = np.minimum(np.abs(dataset["inc_dif"]), 180 - np.abs(dataset["inc_dif"]))
+    dataset["inc_err"] = np.mod(dataset["inc_err"], 180)
+    dataset["inc_err"] = np.minimum(np.abs(dataset["inc_err"]), 180 - np.abs(dataset["inc_err"]))
 
     # Account for wrapping of az around 360 degrees:
-    dataset["az_dif"] = np.mod(dataset["az_dif"], 360)
-    dataset["az_dif"] = np.minimum(np.abs(dataset["az_dif"]), 360 - np.abs(dataset["az_dif"]))
+    dataset["az_err"] = np.mod(dataset["az_err"], 360)
+    dataset["az_err"] = np.minimum(np.abs(dataset["az_err"]), 360 - np.abs(dataset["az_err"]))
 
 
 
@@ -89,16 +89,18 @@ for inclination in [0, 23, 45, 68, 90]:
    
     fig, axs = plt.subplots(3, 6, figsize=(40, 15))
 
+    fig.suptitle(f'Mortensen Simulations, θ={inclination}°', fontsize=16, y=0.99)
+
     for i, dataset in enumerate(datasets):
 
-        dataset_inc = dataset[abs(dataset['inc_thu'] - inclination) <= 5]
+        dataset_inc = dataset[abs(dataset['inc_tru'] - inclination) <= 5]
 
         if dataset_inc.empty:
           continue
 
         IQR_multiplier = 100
 
-        data = dataset_inc["para_dif"]
+        data = dataset_inc["para_err"]
         # IQR to remove outliers
         Q1 = np.percentile(data, 25)
         Q3 = np.percentile(data, 75)
@@ -118,7 +120,7 @@ for inclination in [0, 23, 45, 68, 90]:
         axs[i, 0].set_title(f"{model_names[i]}\nParallel localisation residuals\n" 
                             f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}")
 
-        data = dataset_inc["perp_dif"]
+        data = dataset_inc["perp_err"]
         # IQR to remove outliers
         Q1 = np.percentile(data, 25)
         Q3 = np.percentile(data, 75)
@@ -138,7 +140,7 @@ for inclination in [0, 23, 45, 68, 90]:
         axs[i, 1].set_title(f"{model_names[i]}\nPerpendicular localisation residuals\n" 
                             f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}")
 
-        data = dataset_inc["inc_dif"]
+        data = dataset_inc["inc_err"]
         # IQR to remove outliers
         Q1 = np.percentile(data, 25)
         Q3 = np.percentile(data, 75)
@@ -163,7 +165,7 @@ for inclination in [0, 23, 45, 68, 90]:
         axs[i, 2].set_title(f"{model_names[i]}\nPolar residuals\n" 
                             f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}")
 
-        data = dataset_inc["az_dif"]
+        data = dataset_inc["az_err"]
         # IQR to remove outliers
         Q1 = np.percentile(data, 25)
         Q3 = np.percentile(data, 75)
@@ -188,7 +190,7 @@ for inclination in [0, 23, 45, 68, 90]:
         axs[i, 3].set_title(f"{model_names[i]}\nAzimuth residuals\n" 
                             f"μ = {mean:.4f}, σ = {std:.4f}, μ/SE = {mean/se:.4f}")
 
-        data = dataset_inc["photon_dif"]
+        data = dataset_inc["photon_err"]
         # IQR to remove outliers
         Q1 = np.percentile(data, 25)
         Q3 = np.percentile(data, 75)
@@ -226,7 +228,7 @@ for inclination in [0, 23, 45, 68, 90]:
         se = std / np.sqrt(np.size(filtered_data))
         # Check if all data would fit in a single bin with binwidth=2.5
         data_range = max(data) - min(data)
-        if data_range <= 100:  # If all data would fit in one bin with binwidth=2.5
+        if data_range <= 100000000000:  # If all data would fit in one bin with binwidth=2.5
             sns.histplot(data=data, ax=axs[i, 5], kde=True, fill=True, bins=1)  # Force 5 bins
         else:
             sns.histplot(data=data, ax=axs[i, 5], kde=True, fill=True, binwidth=100)
@@ -240,7 +242,7 @@ for inclination in [0, 23, 45, 68, 90]:
 
 
     plt.tight_layout()
-    output_filename = f"histograms_mortensen_inc{round(inclination)}.png"
+    output_filename = f"histograms_hinterer_inc{round(inclination)}.png"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
     plt.close()
 

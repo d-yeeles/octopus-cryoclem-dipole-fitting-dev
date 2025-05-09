@@ -160,6 +160,6 @@ for inclination in [0]:
         axs[i, 1].axvline(x=0, color='gray', linestyle='-', alpha=0.5)
 
     plt.tight_layout()
-    output_filename = f"testing_inc{round(inclination)}.png"
+    output_filename = f"testing_inc{round(inclination)}.pdf"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
     plt.close()

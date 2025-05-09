@@ -1,4 +1,5 @@
-function fit_stack_commandline_thunderstorm_simulated(stack_path, params_path, thunderstorm_results_path, results_path, model, patch_width_nm, starting_frame_index, ending_frame_index)
+function fit_stack_commandline_thunderstorm_simulated(input_image_and_true_path, model, patch_width_nm, ROI_centre_x_nm, ROI_centre_y_nm, ROI_width_nm, ROI_height_nm, starting_frame_index, ending_frame_index)
+    
     % Function to fit multiple PSFs in a frame
     % 
     % USAGE:
@@ -13,9 +14,14 @@ function fit_stack_commandline_thunderstorm_simulated(stack_path, params_path, t
     %   (suggest 988 nm)
 
     % Add this after the function signature
-    if nargin < 8
+    if nargin < 5
         error('Not enough input arguments. Usage: fit_multiple_psfs(stack_path, params_path, thunderstorm_results_path, results_path, model, patch_width_nm, starting_frame_index, ending_frame_index)');
     end
+
+    stack_path = [input_image_and_true_path 'sim_stack.tif'];
+    thunderstorm_results_path = [input_image_and_true_path 'thunderstorm_results.csv'];
+    params_path = [input_image_and_true_path 'all_simulation_parameters.csv'];
+    results_path = [input_image_and_true_path 'fitting_results_hinterer_test.csv'];
 
     % Pull out info about image stack
     stack_info = imfinfo(stack_path);
@@ -114,7 +120,9 @@ function fit_stack_commandline_thunderstorm_simulated(stack_path, params_path, t
             % Initialise results file if first dipole
             if frame_index == 1 && blob_index == 1
                 fileID = fopen(results_path, 'w');
-                fprintf(fileID, 'frame_index,dipole_index,x_tru,y_tru,inc_tru,az_tru,x_est,y_est,inc_est,az_est,x_err,y_err,inc_err,az_err,photon_tru,photon_est,photon_err,obj_est\n');
+                fprintf(fileID, ['frame_index,dipole_index,x_tru,y_tru,inc_tru,az_tru,x_est,y_est,inc_est,az_est,' ...
+                                 'x_err,y_err,inc_err,az_err,photon_tru,photon_est,photon_err,obj_est,' ...
+                                 'covariance\n']);
                 fclose(fileID);
                 fprintf('Created new CSV file: %s\n', results_path);
             end
@@ -254,8 +262,11 @@ function fit_stack_commandline_thunderstorm_simulated(stack_path, params_path, t
 
             end
 
-            positionX_nm_estimate = fitResult.estimatesPositionDefocus.ML(1) + actual_patch_center_x_nm; % Convert back to global position
-            positionY_nm_estimate = fitResult.estimatesPositionDefocus.ML(2) + actual_patch_center_y_nm; % Convert back to global position
+            positionX_nm_estimate_local = fitResult.estimatesPositionDefocus.ML(1);
+            positionX_nm_estimate = positionX_nm_estimate_local + actual_patch_center_x_nm; % Convert back to global position
+            positionY_nm_estimate_local = fitResult.estimatesPositionDefocus.ML(2);
+            positionY_nm_estimate = positionY_nm_estimate_local + actual_patch_center_y_nm; % Convert back to global position
+            defocus_estimate = fitResult.estimatesPositionDefocus.ML(3);
 
             % Finding errors in the simulated data is a bit more complicated
             % because of things like multiple detections etc.
@@ -299,9 +310,130 @@ function fit_stack_commandline_thunderstorm_simulated(stack_path, params_path, t
             photons_errors_frame(blob_index) = photons_error;
             objective_function_estimates_frame(blob_index) = objective_function_estimate;
 
-            % Write the result for this dipole to the CSV file
-            fileID = fopen(results_path, 'a');  % Open in append mode
-            fprintf(fileID, '%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n', ...
+
+
+
+            % Covariance matrix
+            [covarMatrix, fisherMatrix] = calculateCovarianceMatrix(psfInit, positionX_nm_estimate_local, positionY_nm_estimate_local, defocus_estimate, angleInclination_estimate, angleAzimuth_estimate, photons_fit_estimate, parEst.noiseEstimate, model);
+
+            % Create the matrix string with standard nested array notation
+            covar_str = '[[';  % Start with matrix opening and first row opening
+            
+            for i = 1:size(covarMatrix, 1)
+                if i > 1
+                    covar_str = [covar_str, '['];  % Add row opening bracket for rows after the first
+                end
+                
+                for j = 1:size(covarMatrix, 2)
+                    % Format the number in scientific notation
+                    covar_str = [covar_str, sprintf('%.6e', covarMatrix(i,j))];
+                    
+                    % Add comma between elements unless it's the last element in the row
+                    if j < size(covarMatrix, 2)
+                        covar_str = [covar_str, ','];
+                    end
+                end
+                
+                covar_str = [covar_str, ']'];  % Close this row
+                
+                % Add comma between rows unless it's the last row
+                if i < size(covarMatrix, 1)
+                    covar_str = [covar_str, ','];
+                end
+            end
+            
+            covar_str = [covar_str, ']'];  % Close the matrix
+            
+            % Now we need to ensure this will be handled properly in the CSV
+            % Since it contains commas, we should wrap it in quotes
+            covar_str = ['"', covar_str, '"'];
+
+
+
+
+            % % Covariance matrix
+            % try
+            % 
+            %     [covarMatrix, fisherMatrix] = calculateCovarianceMatrix(psfInit, positionX_nm_estimate_local, positionY_nm_estimate_local, defocus_estimate, angleInclination_estimate, angleAzimuth_estimate, photons_fit_estimate, parEst.noiseEstimate, model);
+            % 
+            %     % Extract standard deviations (square root of diagonal elements)
+            %     param_stds = sqrt(diag(covarMatrix));
+            % 
+            %     % Get uncertainty values based on model type
+            %     if strcmpi(model, 'gaussian')
+            %         x_std = param_stds(1);
+            %         y_std = param_stds(2);
+            %         % z_std = param_stds(3);
+            %         % photon_std = param_stds(4);
+            %         theta_std = NaN;
+            %         phi_std = NaN;
+            %     else
+            %         x_std = param_stds(1);
+            %         y_std = param_stds(2);
+            %         % z_std = param_stds(3);
+            %         theta_std = param_stds(3);%param_stds(4);
+            %         phi_std = param_stds(4);%param_stds(5);
+            %         % photon_std = param_stds(6);
+            %     end
+            % 
+            %     % % Log the uncertainty estimates
+            %     % fprintf('  Estimated uncertainties: ');
+            %     % fprintf('σx=%.2f nm, σy=%.2f nm, σz=%.2f nm', x_std, y_std, z_std);
+            %     % 
+            %     % if ~strcmpi(model, 'gaussian')
+            %     %     fprintf(', σθ=%.4f rad, σφ=%.4f rad', theta_std, phi_std);
+            %     % end
+            %     % fprintf(', σphoton=%.2f\n', photon_std);
+            % catch ME
+            %     % Handle any errors in the covariance calculation gracefully
+            %     fprintf('  Warning: Could not calculate uncertainties. Error: %s\n', ME.message);
+            %     x_std = NaN;
+            %     y_std = NaN;
+            %     % z_std = NaN;
+            %     theta_std = NaN;
+            %     phi_std = NaN;
+            %     % photon_std = NaN;
+            % end
+
+
+
+
+
+
+
+
+
+            % % Write the result for this dipole to the CSV file
+            % fileID = fopen(results_path, 'a');  % Open in append mode
+            % fprintf(fileID, ['%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,' ...
+            %                   '%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%s\n'], ...
+            %     frame_index, ...
+            %     blob_index, ...
+            %     positionX_nm_true, ...
+            %     positionY_nm_true, ...
+            %     angleInclination_true, ...
+            %     angleAzimuth_true, ...
+            %     positionX_nm_estimate, ...
+            %     positionY_nm_estimate, ...
+            %     angleInclination_estimate, ...
+            %     angleAzimuth_estimate, ...
+            %     positionX_nm_error, ...
+            %     positionY_nm_error, ...
+            %     angleInclination_error, ...
+            %     angleAzimuth_error, ...
+            %     photons_true, ...
+            %     photons_fit_estimate, ...
+            %     photons_error, ...
+            %     objective_function_estimate, ...
+            %     covar_str);
+            % fclose(fileID);
+
+
+
+            fileID = fopen(results_path, 'a');
+            
+            % Format all the numeric values first
+            numeric_part = sprintf('%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,', ...
                 frame_index, ...
                 blob_index, ...
                 positionX_nm_true, ...
@@ -320,9 +452,95 @@ function fit_stack_commandline_thunderstorm_simulated(stack_path, params_path, t
                 photons_fit_estimate, ...
                 photons_error, ...
                 objective_function_estimate);
+            
+            % Write everything to file
+            fprintf(fileID, '%s%s\n', numeric_part, covar_str);
             fclose(fileID);
 
+
         end % end loop over blobs
+
+
+
+
+
+        % % -----------------------------------------------------------------
+        % % VISUALISATION
+        % % -----------------------------------------------------------------
+        % % Display the original frame image
+        % figure(100); clf;
+        % imagesc(psf_image);
+        % colormap(gray);
+        % axis image;
+        % hold on;
+        % 
+        % % Plot ROI in yellow
+        % ROI_min_x_px = nm_to_px(ROI_min_x_nm, pixel_size_nm, image_width_px, 'x');
+        % ROI_max_x_px = nm_to_px(ROI_max_x_nm, pixel_size_nm, image_width_px, 'x');
+        % ROI_min_y_px = nm_to_px(ROI_min_y_nm, pixel_size_nm, image_width_px, 'y');
+        % ROI_max_y_px = nm_to_px(ROI_max_y_nm, pixel_size_nm, image_width_px, 'y');
+        % % Make sure left is smaller than right, and top is smaller than bottom
+        % roi_left = min(ROI_min_x_px, ROI_max_x_px);
+        % roi_top = min(ROI_min_y_px, ROI_max_y_px);
+        % roi_width = abs(ROI_max_x_px - ROI_min_x_px);
+        % roi_height = abs(ROI_max_y_px - ROI_min_y_px);
+        % 
+        % % Draw the rectangle using corrected values
+        % rectangle('Position', [roi_left, roi_top, roi_width, roi_height], ...
+        %     'EdgeColor', 'y', 'LineWidth', 1);
+        % % rectangle('Position', [ROI_min_x_px, ROI_min_y_px, ROI_max_x_px-ROI_min_x_px, ROI_max_y_px-ROI_min_y_px], ...
+        % %     'EdgeColor', 'y', 'LineWidth', 1);
+        % 
+        % % Plot all patch boundaries in red
+        % for b_idx = 1:length(current_frame_x_array)
+        %     patch_centre_x_px = nm_to_px(current_frame_x_array(b_idx), pixel_size_nm, image_width_px, 'x');
+        %     patch_centre_y_px = nm_to_px(current_frame_y_array(b_idx), pixel_size_nm, image_height_px, 'y');
+        % 
+        %     % Half width for calculations
+        %     half_width = floor(patch_width_px / 2);
+        % 
+        %     % Calculate patch boundaries
+        %     patch_start_x = max(1, round(patch_centre_x_px - half_width));
+        %     patch_start_y = max(1, round(patch_centre_y_px - half_width));
+        %     patch_end_x = min(image_width, patch_start_x + patch_width_px - 1);
+        %     patch_end_y = min(image_height, patch_start_y + patch_width_px - 1);
+        % 
+        %     % Draw rectangle around the patch
+        %     rectangle('Position', [patch_start_x, patch_start_y, patch_end_x-patch_start_x, patch_end_y-patch_start_y], ...
+        %         'EdgeColor', 'r', 'LineWidth', 1);
+        % end
+        % 
+        % % Plot thunderstorm localizations as green dots
+        % for ts_idx = 1:length(current_frame_x_array)
+        %     ts_x_px = nm_to_px(positionX_nm_trues_frame(ts_idx), pixel_size_nm, image_width_px, 'x');
+        %     ts_y_px = nm_to_px(positionY_nm_trues_frame(ts_idx), pixel_size_nm, image_height_px, 'y');
+        %     plot(ts_x_px, ts_y_px, 'g.', 'MarkerSize', 1);
+        % end
+        % 
+        % % Plot estimated localizations as yellow dots
+        % for est_idx = 1:length(current_frame_x_array)
+        %     est_x_px = nm_to_px(positionX_nm_estimates_frame(est_idx), pixel_size_nm, image_width_px, 'x');
+        %     est_y_px = nm_to_px(positionY_nm_estimates_frame(est_idx), pixel_size_nm, image_height_px, 'y');
+        %     plot(est_x_px, est_y_px, 'y.', 'MarkerSize', 1);
+        % end
+        % 
+        % % % Add a legend
+        % % legend('', 'Patch boundaries', 'ThunderStorm', 'Estimated', 'Location', 'NorthEast');
+        % title(sprintf('Frame %d - Localizations', frame_index));
+        % 
+        % % Add a colorbar
+        % colorbar;
+        % 
+        % % Force the figure to update
+        % drawnow;
+        % 
+        % % Optionally save the figure
+        % saveas(gcf, sprintf('%sframe_%03d_localization.png', input_image_and_true_path, frame_index));
+        % 
+        % % -----------------------------------------------------------------
+
+
+
 
         frame_time = toc;
         fprintf('  Time for this frame: %.2f seconds\n', frame_time);

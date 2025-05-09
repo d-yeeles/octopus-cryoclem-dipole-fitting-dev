@@ -268,7 +268,7 @@ for inclination in [0]:
 
 
     plt.tight_layout()
-    output_filename = f"histograms_hinterer_inc{round(inclination)}.png"
+    output_filename = f"histograms_hinterer_inc{round(inclination)}.pdf"
     plt.savefig(f"{output_dir}{output_filename}", dpi=300)
     plt.close()
 
