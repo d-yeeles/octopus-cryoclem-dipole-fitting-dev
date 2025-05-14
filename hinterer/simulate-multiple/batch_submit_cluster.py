@@ -66,7 +66,7 @@ def main():
                 str(first_frame),
                 str(last_frame),
             ]],
-        
+            queue="fbioctopus-cpu",   
             singularity_image='/mnt/rclsfserv005/local/dipole_fitting.sif',
                  delete_successful_logs=True,
                  debug=True,

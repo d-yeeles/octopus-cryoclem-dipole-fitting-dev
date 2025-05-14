@@ -8,7 +8,8 @@ jobids=Cluster.submitCommands(
          ['ls', '-l'],
          ['id'],
      ],
-singularity_image='/mnt/rclsfserv005/local/dipole_fitting.sif',
+     queue="fbioctopus-cpu",
+     singularity_image='/mnt/rclsfserv005/local/dipole_fitting.sif',
      delete_successful_logs=False,
      debug=True,
 )

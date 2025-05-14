@@ -214,6 +214,59 @@ function currentFitPSF = calculateProbabilitySpherical(paramEst, x, y, defocus, 
 
 end
 
+% function derivatives = calculateDerivativesSpherical(paramEst, x, y, defocus, theta, phi, photons, noise_est, model)
+%     % Calculate derivatives of the PSF with respect to each parameter including theta and phi
+%     % Using finite differences for approximation
+% 
+%     % Small step sizes for numerical derivatives
+%     delta_pos = 1;     % nm
+%     delta_theta = 0.01; % radians
+%     delta_phi = 0.01;   % radians
+% 
+%     % Calculate PSF at current parameters
+%     psf0 = calculateProbabilitySpherical(paramEst, x, y, defocus, theta, phi, photons, noise_est, model);
+% 
+%     % Derivatives with respect to x and y position
+%     psf_dx_plus = calculateProbabilitySpherical(paramEst, x + delta_pos, y, defocus, theta, phi, photons, noise_est, model);
+%     psf_dx_minus = calculateProbabilitySpherical(paramEst, x - delta_pos, y, defocus, theta, phi, photons, noise_est, model);
+%     dx = (psf_dx_plus - psf_dx_minus) / (2 * delta_pos);
+% 
+%     psf_dy_plus = calculateProbabilitySpherical(paramEst, x, y + delta_pos, defocus, theta, phi, photons, noise_est, model);
+%     psf_dy_minus = calculateProbabilitySpherical(paramEst, x, y - delta_pos, defocus, theta, phi, photons, noise_est, model);
+%     dy = (psf_dy_plus - psf_dy_minus) / (2 * delta_pos);
+% 
+%     % Derivative with respect to theta (with proper wrapping)
+%     % If close to boundaries (0 or pi), use one-sided differences
+%     if theta < delta_theta
+%         % Near lower boundary, use forward difference
+%         psf_dtheta_plus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta + delta_theta, phi, photons, noise_est, model);
+%         dtheta = (psf_dtheta_plus - psf0) / delta_theta;
+%     elseif theta > (pi/2) - delta_theta
+%         % Near upper boundary, use backward difference
+%         psf_dtheta_minus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta - delta_theta, phi, photons, noise_est, model);
+%         dtheta = (psf0 - psf_dtheta_minus) / delta_theta;
+%     else
+%         % Use central difference
+%         psf_dtheta_plus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta + delta_theta, phi, photons, noise_est, model);
+%         psf_dtheta_minus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta - delta_theta, phi, photons, noise_est, model);
+%         dtheta = (psf_dtheta_plus - psf_dtheta_minus) / (2 * delta_theta);
+%     end
+% 
+%     % Derivative with respect to phi (with proper wrapping)
+%     % phi is periodic with period 2*pi
+%     psf_dphi_plus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta, mod(phi + delta_phi, 2*pi), photons, noise_est, model);
+%     psf_dphi_minus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta, mod(phi - delta_phi, 2*pi), photons, noise_est, model);
+%     dphi = (psf_dphi_plus - psf_dphi_minus) / (2 * delta_phi);
+% 
+%     % For models that only use position (like Gaussian)
+%     if strcmpi(model, 'gaussian')
+%         derivatives = {dx, dy};
+%     else
+%         % Include orientation derivatives for other models
+%         derivatives = {dx, dy, dtheta, dphi};
+%     end
+% end
+
 function derivatives = calculateDerivativesSpherical(paramEst, x, y, defocus, theta, phi, photons, noise_est, model)
     % Calculate derivatives of the PSF with respect to each parameter including theta and phi
     % Using finite differences for approximation
@@ -226,7 +279,7 @@ function derivatives = calculateDerivativesSpherical(paramEst, x, y, defocus, th
     % Calculate PSF at current parameters
     psf0 = calculateProbabilitySpherical(paramEst, x, y, defocus, theta, phi, photons, noise_est, model);
 
-    % Derivatives with respect to x and y position
+    % Derivatives with respect to x and y position (unchanged)
     psf_dx_plus = calculateProbabilitySpherical(paramEst, x + delta_pos, y, defocus, theta, phi, photons, noise_est, model);
     psf_dx_minus = calculateProbabilitySpherical(paramEst, x - delta_pos, y, defocus, theta, phi, photons, noise_est, model);
     dx = (psf_dx_plus - psf_dx_minus) / (2 * delta_pos);
@@ -236,13 +289,13 @@ function derivatives = calculateDerivativesSpherical(paramEst, x, y, defocus, th
     dy = (psf_dy_plus - psf_dy_minus) / (2 * delta_pos);
 
     % Derivative with respect to theta (with proper wrapping)
-    % If close to boundaries (0 or pi), use one-sided differences
+    % Fix boundary check - theta ranges from 0 to pi
     if theta < delta_theta
-        % Near lower boundary, use forward difference
+        % Near lower boundary (theta ≈ 0), use forward difference
         psf_dtheta_plus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta + delta_theta, phi, photons, noise_est, model);
         dtheta = (psf_dtheta_plus - psf0) / delta_theta;
-    elseif theta > (pi/2) - delta_theta
-        % Near upper boundary, use backward difference
+    elseif theta > pi - delta_theta
+        % Near upper boundary (theta ≈ π), use backward difference
         psf_dtheta_minus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta - delta_theta, phi, photons, noise_est, model);
         dtheta = (psf0 - psf_dtheta_minus) / delta_theta;
     else
@@ -253,10 +306,19 @@ function derivatives = calculateDerivativesSpherical(paramEst, x, y, defocus, th
     end
 
     % Derivative with respect to phi (with proper wrapping)
-    % phi is periodic with period 2*pi
-    psf_dphi_plus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta, mod(phi + delta_phi, 2*pi), photons, noise_est, model);
-    psf_dphi_minus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta, mod(phi - delta_phi, 2*pi), photons, noise_est, model);
-    dphi = (psf_dphi_plus - psf_dphi_minus) / (2 * delta_phi);
+    % Add special handling for phi when theta is near 0 or pi
+    % since phi becomes ill-defined at poles
+    if theta < 0.05 || theta > pi - 0.05
+        % Near poles (θ ≈ 0 or θ ≈ π), phi derivative approaches zero
+        % because changes in phi have minimal effect on dipole orientation
+        dphi = zeros(size(psf0));
+    else
+        % For other theta values, calculate phi derivative normally
+        % with proper handling of periodicity
+        psf_dphi_plus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta, mod(phi + delta_phi, 2*pi), photons, noise_est, model);
+        psf_dphi_minus = calculateProbabilitySpherical(paramEst, x, y, defocus, theta, mod(phi - delta_phi, 2*pi), photons, noise_est, model);
+        dphi = (psf_dphi_plus - psf_dphi_minus) / (2 * delta_phi);
+    end
 
     % For models that only use position (like Gaussian)
     if strcmpi(model, 'gaussian')
