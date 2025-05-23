@@ -1,6 +1,6 @@
 function run_fit_stack_commandline_thunderstorm(varargin)
     if nargin < 5
-        error('Usage: matlab -nodisplay -r "run_fit_stack_commandline_thunderstorm(''input_image_path'', ''input_thunderstorm_path'', ''output_results_path'', ''model'', ''patch_width_nm'', ''first_frame'', ''last_frame'')"');
+        error('Usage: matlab -nodisplay -r "fit_stack_commandline_thunderstorm_posterior(''input_image_path'', ''input_thunderstorm_path'', ''output_results_path'', ''model'', ''patch_width_nm'', ''first_frame'', ''last_frame'')"');
     end
     
     input_image_path = strip_quotes(varargin{1});
@@ -26,7 +26,7 @@ function run_fit_stack_commandline_thunderstorm(varargin)
     %     frame_array = arrayfun(@str2double, frame_array_str);
     % end
 
-    fit_stack_commandline_thunderstorm(input_image_path, input_thunderstorm_path, output_results_path, model, patch_width_nm, first_frame, last_frame);
+    fit_stack_commandline_thunderstorm_posterior(input_image_path, input_thunderstorm_path, output_results_path, model, patch_width_nm, first_frame, last_frame);
     exit;
 end
 

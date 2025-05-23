@@ -435,7 +435,7 @@ classdef FitPSF_ML_reparam2
                     end
                     
                     % Check if Python file exists in this directory
-                    pyFilePath = fullfile(pyDir, 'vectorized_mortensen_flipy_phi_theta.py');
+                    pyFilePath = fullfile(pyDir, 'vectorized_mortensen_flipy_phi_t.py');
                     if exist(pyFilePath, 'file')
                         % fprintf('Found Python module at: %s\n', pyFilePath);
                         

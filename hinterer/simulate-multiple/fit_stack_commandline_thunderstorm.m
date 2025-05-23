@@ -142,8 +142,8 @@ function fit_stack_commandline_thunderstorm(input_image_path, input_thunderstorm
             if frame_index == 1 && blob_index == 1
                 fileID = fopen(results_path, 'w');
                 fprintf(fileID, ['frame_index,dipole_index,x_tru,y_tru,newangle1_tru,newangle2_tru,newangle3_tru,inc_tru,az_tru,x_est,y_est,newangle1_est,newangle2_est,newangle3_est,inc_est,az_est,' ...
-                                 'x_err,y_err,newangle1_err,newangle2_err,newangle3_err,inc_err,az_err,photon_tru,photon_est,photon_err,obj_est,' ...
-                                 'covariance\n']);
+                                 'x_err,y_err,newangle1_err,newangle2_err,newangle3_err,inc_err,az_err,photon_tru,photon_est,photon_err,dotProduct_err,obj_est,' ...
+                                 'covariance_spher,covariance_cart\n']);
                 fclose(fileID);
                 fprintf('Created new CSV file: %s\n', results_path);
             end
@@ -326,6 +326,18 @@ function fit_stack_commandline_thunderstorm(input_image_path, input_thunderstorm
             angleAzimuth_diff = angleAzimuth_thunderstorm - angleAzimuth_estimate;
             photons_diff = photons_thunderstorm - photons_fit_estimate;
 
+            % Use opening angle dot product thing instead
+            dot_product = newangle1_thunderstorm * newangle1_estimate + ...
+                          newangle2_thunderstorm * newangle2_estimate + ...
+                          newangle3_thunderstorm * newangle3_estimate;
+            abs_dot_product = abs(dot_product);
+            % Ensure the dot product is within valid range for arccos
+            % (numerical precision can sometimes cause values slightly outside [-1,1])
+            abs_dot_product = min(max(abs_dot_product, 0), 1);
+            % Calculate the error angle in radians
+            dotProduct_diff = acos(abs_dot_product);
+
+
             % Append results for each blob to an array for this frame
             positionX_nm_thunderstorms_frame(blob_index) = positionX_nm_thunderstorm;
             positionY_nm_thunderstorms_frame(blob_index) = positionY_nm_thunderstorm;
@@ -353,6 +365,7 @@ function fit_stack_commandline_thunderstorm(input_image_path, input_thunderstorm
             angleInclination_diffs_frame(blob_index) = angleInclination_diff;
             angleAzimuth_diffs_frame(blob_index) = angleAzimuth_diff;
             photons_diffs_frame(blob_index) = photons_diff;
+            dotProduct_diffs_frame(blob_index) = dotProduct_diff;
             objective_function_estimates_frame(blob_index) = objective_function_estimate;
 
 
@@ -398,48 +411,70 @@ function fit_stack_commandline_thunderstorm(input_image_path, input_thunderstorm
             
             % Covariance matrix
             % [covarMatrix, fisherMatrix] = calculateCovarianceMatrix(psfInit, positionX_nm_estimate_local, positionY_nm_estimate_local, defocus_estimate, newangle1_estimate, newangle2_estimate, newangle3_estimate, photons_fit_estimate, parEst.noiseEstimate, model);
-            [covarMatrix, fisherMatrix] = calculateSphericalCoordinatesCovarianceMatrix(psfInit, positionX_nm_estimate_local, positionY_nm_estimate_local, defocus_estimate, angleInclination_estimate, angleAzimuth_estimate, photons_fit_estimate, parEst.noiseEstimate, model);
+            % [covarMatrix, fisherMatrix] = calculateCartesianCoordinatesCovarianceMatrix(psfInit, positionX_nm_estimate_local, positionY_nm_estimate_local, defocus_estimate, angleInclination_estimate, angleAzimuth_estimate, photons_fit_estimate, parEst.noiseEstimate, model);
+            [cartesianCovarMatrix, sphericalCovarMatrix, fisherMatrix] = calculateCartesianCoordinatesCovarianceMatrix(psfInit, positionX_nm_estimate_local, positionY_nm_estimate_local, defocus_estimate, newangle1_estimate, newangle2_estimate, newangle3_estimate, photons_fit_estimate, parEst.noiseEstimate, model);
 
             % % Extract standard deviations (square root of diagonal elements)
             % param_stds = sqrt(diag(covarMatrix));
             % photon_std = param_stds(5);
             % disp(photon_std)
 
-            % Create the matrix string with standard nested array notation
-            covar_str = '[[';  % Start with matrix opening and first row opening
+
+
+            % Create the matrix string with standard nested array notation for spherical covariance
+            covar_str_spher = '[';  % Start with matrix opening
             
-            for i = 1:size(covarMatrix, 1)
-                if i > 1
-                    covar_str = [covar_str, '['];  % Add row opening bracket for rows after the first
-                end
+            for i = 1:size(sphericalCovarMatrix, 1)
+                covar_str_spher = [covar_str_spher, '['];  % Add row opening bracket
                 
-                for j = 1:size(covarMatrix, 2)
+                for j = 1:size(sphericalCovarMatrix, 2)
                     % Format the number in scientific notation
-                    covar_str = [covar_str, sprintf('%.6e', covarMatrix(i,j))];
+                    covar_str_spher = [covar_str_spher, sprintf('%.6e', sphericalCovarMatrix(i,j))];
                     
                     % Add comma between elements unless it's the last element in the row
-                    if j < size(covarMatrix, 2)
-                        covar_str = [covar_str, ','];
+                    if j < size(sphericalCovarMatrix, 2)
+                        covar_str_spher = [covar_str_spher, '|'];
                     end
                 end
                 
-                covar_str = [covar_str, ']'];  % Close this row
+                covar_str_spher = [covar_str_spher, ']'];  % Close this row
                 
                 % Add comma between rows unless it's the last row
-                if i < size(covarMatrix, 1)
-                    covar_str = [covar_str, ','];
+                if i < size(sphericalCovarMatrix, 1)
+                    covar_str_spher = [covar_str_spher, '|'];
                 end
             end
             
-            covar_str = [covar_str, ']'];  % Close the matrix
+            covar_str_spher = [covar_str_spher, ']'];  % Close the matrix
             
-            % Now we need to ensure this will be handled properly in the CSV
-            % Since it contains commas, we should wrap it in quotes
-            covar_str = ['"', covar_str, '"'];
 
 
-
-
+            
+            % Create the matrix string with standard nested array notation for cartesian covariance
+            covar_str_cart = '[';  % Start with matrix opening
+            
+            for i = 1:size(cartesianCovarMatrix, 1)
+                covar_str_cart = [covar_str_cart, '['];  % Add row opening bracket
+                
+                for j = 1:size(cartesianCovarMatrix, 2)
+                    % Format the number in scientific notation
+                    covar_str_cart = [covar_str_cart, sprintf('%.6e', cartesianCovarMatrix(i,j))];
+                    
+                    % Add comma between elements unless it's the last element in the row
+                    if j < size(cartesianCovarMatrix, 2)
+                        covar_str_cart = [covar_str_cart, '|'];
+                    end
+                end
+                
+                covar_str_cart = [covar_str_cart, ']'];  % Close this row
+                
+                % Add comma between rows unless it's the last row
+                if i < size(cartesianCovarMatrix, 1)
+                    covar_str_cart = [covar_str_cart, '|'];
+                end
+            end
+            
+            covar_str_cart = [covar_str_cart, ']'];  % Close the matrix
 
 
 
@@ -447,7 +482,7 @@ function fit_stack_commandline_thunderstorm(input_image_path, input_thunderstorm
             fileID = fopen(results_path, 'a');
             
             % Format all the numeric values first
-            numeric_part = sprintf('%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,', ...
+            numeric_part = sprintf('%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f', ...
                 frame_index, ...
                 blob_index, ...
                 positionX_nm_thunderstorm, ...
@@ -474,10 +509,11 @@ function fit_stack_commandline_thunderstorm(input_image_path, input_thunderstorm
                 photons_thunderstorm, ...
                 photons_fit_estimate, ...
                 photons_diff, ...
+                dotProduct_diff, ...
                 objective_function_estimate);
             
             % Write everything to file
-            fprintf(fileID, '%s%s\n', numeric_part, covar_str);
+            fprintf(fileID, '%s,%s,%s\n', numeric_part, covar_str_spher, covar_str_cart);
             fclose(fileID);
 
 

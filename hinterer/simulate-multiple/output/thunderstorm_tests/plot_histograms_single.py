@@ -24,7 +24,7 @@ dYellows = LinearSegmentedColormap.from_list('dyellow_to_white', [(1, 1, 1), dye
 
 # Define file paths for CSV files
 file_paths = [
-    'results_with_covar_example2.csv',
+    'results_posterior_test.csv',
 ]
 
 model_names = ['Hinterer']
@@ -83,7 +83,7 @@ output_dir = './'
 import seaborn as sns
 
 # Generate plots for each fixed inclination
-for inclination in [0]:#, 23, 45, 68, 90]:
+for inclination in [0, 23, 45, 68, 90]:
    
     fig, axs = plt.subplots(1, 6, figsize=(40, 5))
 
@@ -91,7 +91,7 @@ for inclination in [0]:#, 23, 45, 68, 90]:
 
     for i, dataset in enumerate(datasets):
 
-        dataset_inc = dataset[abs(dataset['inc_tru'] - inclination) <= 9999995]
+        dataset_inc = dataset[abs(dataset['inc_tru'] - inclination) <= 5]
 
         if dataset_inc.empty:
           continue
